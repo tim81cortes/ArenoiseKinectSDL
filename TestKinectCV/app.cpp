@@ -46,6 +46,7 @@ bool App::getSensorPresence()
 void App::Tick(float deltaTime)
 {
 	//put update and drawing stuff here
+	cv::Mat A;
 	HRESULT hr;
 	IDepthFrame* depthFrame;
 	
@@ -64,7 +65,7 @@ void App::Tick(float deltaTime)
 		hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);	
 		if (FAILED(hr))
 		{	
-			printf("Oh no! Something went wrong \n");
+			printf("There was a problem copying the frame data to a buffer. \n");
 			return;
 		}
 	}
