@@ -42,65 +42,65 @@ void DrawPixelbuffer(SDL_Texture* texture, SDL_Renderer* renderer,
 #undef main
 int main(int, char**)
 {
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-	//initialize SDL
-	SDL_Init(SDL_INIT_VIDEO);
-	//SDL_DisplayMode desktopMode;
-	//SDL_GetDesktopDisplayMode(0, &desktopMode);
+	//SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+	////initialize SDL
+	//SDL_Init(SDL_INIT_VIDEO);
+	////SDL_DisplayMode desktopMode;
+	////SDL_GetDesktopDisplayMode(0, &desktopMode);
 
-	//create a window
-	SDL_Window *window = SDL_CreateWindow("ARENOISE_DEPTHMAP_CAPTURE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		SCREENWIDTH, SCREENHEIGHT, SDL_WINDOW_RESIZABLE);
-	if (window == nullptr)
-		return 1;
+	////create a window
+	//SDL_Window *window = SDL_CreateWindow("ARENOISE_DEPTHMAP_CAPTURE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	//	SCREENWIDTH, SCREENHEIGHT, SDL_WINDOW_RESIZABLE);
+	//if (window == nullptr)
+	//	return 1;
 
-	printf("Window Opened.\n");
+	//printf("Window Opened.\n");
 
-	//create a renderer
-	SDL_Renderer* renderer = SDL_CreateRenderer(
-		window, -1, SDL_RENDERER_ACCELERATED); //put back to previous SDL_RENDERER_ACCELERATED
-	if (renderer == nullptr)
-		return 2;
-	
-	//SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-
-	SDL_RenderSetScale(renderer, 2.0f, 1.5f);
-	SDL_RenderSetLogicalSize(renderer, DEPTHMAPWIDTH, DEPTHMAPHEIGHT);
+	////create a renderer
+	//SDL_Renderer* renderer = SDL_CreateRenderer(
+	//	window, -1, SDL_RENDERER_ACCELERATED); //put back to previous SDL_RENDERER_ACCELERATED
+	//if (renderer == nullptr)
+	//	return 2;
+	//
+	////SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
 
-	//printf("Worked: %s", worked);
-
-	printf("Renderer created.\n");
-
-	//create a texture
-	SDL_Texture* texture = SDL_CreateTexture(
-		renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING,
-		DEPTHMAPWIDTH, DEPTHMAPHEIGHT); // change target to streaming to restore
-	if (texture == nullptr)
-		return 3;
+	//SDL_RenderSetScale(renderer, 2.0f, 1.5f);
+	//SDL_RenderSetLogicalSize(renderer, DEPTHMAPWIDTH, DEPTHMAPHEIGHT);
 
 
-	printf("Texture created.\n");
+	////printf("Worked: %s", worked);
+
+	//printf("Renderer created.\n");
+
+	////create a texture
+	//SDL_Texture* texture = SDL_CreateTexture(
+	//	renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING,
+	//	DEPTHMAPWIDTH, DEPTHMAPHEIGHT); // change target to streaming to restore
+	//if (texture == nullptr)
+	//	return 3;
 
 
-	//allocate a pixel buffer
+	//printf("Texture created.\n");
+
+
+	////allocate a pixel buffer
 	uint32* pixelBuffer = new uint32[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 	if (pixelBuffer == nullptr)
 		return 4;
 
 
-	printf("Pixel buffer allocated.\n");
+	//printf("Pixel buffer allocated.\n");
 
-	//clear the pixel buffer
+	////clear the pixel buffer
 	memset(pixelBuffer, 0, DEPTHMAPWIDTH * DEPTHMAPHEIGHT * 4);
-	
+	//
 
 
-	//draw pixel buffer to the screen
-	DrawPixelbuffer(texture, renderer, pixelBuffer);
+	////draw pixel buffer to the screen
+	//DrawPixelbuffer(texture, renderer, pixelBuffer);
 
-	printf("Pixel buffer drawn to screen.\n");
+	//printf("Pixel buffer drawn to screen.\n");
 
 	App app;
 	app.SetPixelBuffer(pixelBuffer);
@@ -147,7 +147,7 @@ int main(int, char**)
 		app.Tick(deltaTime);
 
 		//draw pixel buffer to the screen
-		DrawPixelbuffer(texture, renderer, pixelBuffer);
+		//DrawPixelbuffer(texture, renderer, pixelBuffer);
 		/*{
 			return 4;
 		}*/
@@ -166,10 +166,10 @@ int main(int, char**)
 
 	//clean up
 	app.Shutdown();
-	SDL_DestroyTexture(texture);
+	/*SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
-	SDL_Quit();
+	SDL_Quit();*/
 
 	return 0;
 }

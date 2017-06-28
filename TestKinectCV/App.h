@@ -57,5 +57,8 @@ private:
 	IKinectSensor* m_sensor = nullptr;
 	IDepthFrameReader* m_depthFrameReader = nullptr;
 	uint16* depthBuffer = nullptr;
+	uint16* depthBufferOpCv = nullptr;
+	uint* depthBufferOpCvSize = nullptr;
 	bool foundSensor = false;
+	IDepthFrame* depthFrame;
 };
