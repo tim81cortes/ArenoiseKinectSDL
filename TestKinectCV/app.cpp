@@ -95,48 +95,6 @@ void App::Tick(float deltaTime)
 		cv::waitKey(10);
 		//printf("Value: %d \n", mat.at<uint16>(510,420));
 
-	//double iterRank = 0;
-	//uint32 iterRankIndex = 0;
-	//uint16 iterFile = 0;
-	//uint16 depthFlip = 0;
-
-	//Copy depth data to the screen.
-		//for (int i = 0; i < DEPTHMAPWIDTH * DEPTHMAPHEIGHT; i++)
-		//{
-		//uint16 depth = depthBuffer[i];
-		////	iterRank = trunc(i / DEPTHMAPWIDTH);
-		////	iterRankIndex = uint32(iterRank * DEPTHMAPWIDTH);
-		////	iterFile = i - iterRankIndex;
-		////
-		////
-		////	if (foundSensor)
-		////	{
-		////		depthFlip = depthBuffer[iterRankIndex + DEPTHMAPWIDTH - iterFile];
-		////	}
-		////	else
-		////	{
-		////		depthFlip = 1000;
-		////	}
-		////	//std::cout << "Depth:" << i << " IterRank: " << iterRank << " IterRankIndex" << iterRankIndex << " Iterfile" << iterFile << " Depthflip: " << depthFlip << '\n';
-		////
-		//	m_pixelBuffer[i] = depth;
-
-		//}
-
-	/*for (int i = 0; i < mat.rows/4; i++) {
-		for (int j = 0; j < mat.cols/4; j++)
-		{
-			if (i % 20 == 0)
-			{
-				printf("Row: %d Column: %d Value: %d \n", i, j, mat.at<double>(i,j));
-			}
-			
-		}
-		
-
-	}*/
-	//printf("Value: %d \n", NormMat.at<uint16>(20, 20));
-
 	if (foundSensor == true)
 	{
 		SafeRelease(depthFrame);
