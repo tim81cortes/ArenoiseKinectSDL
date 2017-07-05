@@ -14,6 +14,7 @@
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
 #include<conio.h>           
+#include "configureApp.h"
 
 // size of window
 #define DEPTHMAPWIDTH 512
@@ -46,7 +47,8 @@ public:
 
 	// safe way of plotting a pixel
 	void Plot(int x, int y, uint32 color) {}
-
+	void flipAndDisplay(Mat & toFlip, const String window, int wait);
+	void getFrame();
 	bool getSensorPresence();
 
 private:

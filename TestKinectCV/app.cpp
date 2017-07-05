@@ -36,10 +36,37 @@ void App::Init()
 		foundSensor = true;
 		cv::namedWindow("CvOutput", CV_WINDOW_KEEPRATIO);
 		depthBuffer = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
+
+
 	}
 
 	
 
+}
+void App::flipAndDisplay(Mat & toFlip, const String window, int wait)
+{
+	cv::Mat toShow;
+	cv::flip(toFlip, toShow, 1);
+	cv::imshow(window, toShow);
+	cv::waitKey(wait);
+}
+void App::getFrame()
+{
+	HRESULT hr;
+	hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
+	if (FAILED(hr))
+	{
+		return;
+	}
+
+	//printf("Copying data \n");
+
+	hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);
+	if (FAILED(hr))
+	{
+		printf("There was a problem copying the frame data to a buffer. \n");
+		return;
+	}
 }
 bool App::getSensorPresence()
 {
@@ -72,7 +99,7 @@ void App::Tick(float deltaTime)
 			return;
 		}
 
-	}
+	
 
 		cv::Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
 		//printf("Depth Buffer Size %d", sizeof(depthBuffer));
@@ -82,21 +109,19 @@ void App::Tick(float deltaTime)
 		cv::Mat ScalledMat;
 		cv::Mat BeforeColouredMat;
 		cv::Mat BeforeInvertedMat;
-		cv::flip(mat, FlippedMat, 1);
 		
-		cv::normalize(FlippedMat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
+		
+		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 
 		
 		cv::Mat DisplayMat;
 		NormMat.convertTo(BeforeColouredMat, CV_8UC3);
 		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, 4);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
-		cv::imshow("CvOutput", DisplayMat);	
-		cv::waitKey(10);
-		//printf("Value: %d \n", mat.at<uint16>(510,420));
 
-	if (foundSensor == true)
-	{
+		//printf("Value: %d \n", mat.at<uint16>(510,420));
+		flipAndDisplay(DisplayMat, "CvOutput", 2);
+
 		SafeRelease(depthFrame);
 	}
 
