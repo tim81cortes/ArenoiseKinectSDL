@@ -77,28 +77,28 @@ void App::Tick(float deltaTime)
 	//cv::setBreakOnError(true);
 	
 	//put update and drawing stuff here
-	HRESULT hr;
+	//HRESULT hr;
 	
 	
 	
 	
 	if (true == foundSensor)
 	{
-		hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
-		if (FAILED(hr))
-		{
-			return;
-		}
+		//hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
+		//if (FAILED(hr))
+		//{
+		//	return;
+		//}
 	
-		//printf("Copying data \n");
+		////printf("Copying data \n");
 
-		hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);	
-		if (FAILED(hr))
-		{	
-			printf("There was a problem copying the frame data to a buffer. \n");
-			return;
-		}
-
+		//hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);	
+		//if (FAILED(hr))
+		//{	
+		//	printf("There was a problem copying the frame data to a buffer. \n");
+		//	return;
+		//}
+		getFrame();
 	
 
 		cv::Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
