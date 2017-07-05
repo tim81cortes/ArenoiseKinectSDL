@@ -37,26 +37,36 @@ void App::Init()
 		cv::namedWindow("CvOutput", CV_WINDOW_KEEPRATIO);
 		depthBuffer = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
+		while(!getFrame());
 
+		Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
+		Mat NormMat;
+		Mat DisplayMat;
+		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
+
+		NormMat.convertTo(DisplayMat, CV_8UC3);
+		flipAndDisplay(DisplayMat, "CvOutput", 0);
+		SafeRelease(depthFrame);
+		
 	}
 
 	
 
 }
-void App::flipAndDisplay(Mat & toFlip, const String window, int wait)
+void App::flipAndDisplay(Mat& toFlip, const String window, int wait)
 {
 	cv::Mat toShow;
 	cv::flip(toFlip, toShow, 1);
-	cv::imshow(window, toShow);
+	cv::imshow("CvOutput", toShow);
 	cv::waitKey(wait);
 }
-void App::getFrame()
+bool App::getFrame()
 {
 	HRESULT hr;
 	hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
 	if (FAILED(hr))
 	{
-		return;
+		return false;
 	}
 
 	//printf("Copying data \n");
@@ -65,8 +75,9 @@ void App::getFrame()
 	if (FAILED(hr))
 	{
 		printf("There was a problem copying the frame data to a buffer. \n");
-		return;
+		return false;
 	}
+	return true;
 }
 bool App::getSensorPresence()
 {

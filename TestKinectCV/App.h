@@ -48,7 +48,7 @@ public:
 	// safe way of plotting a pixel
 	void Plot(int x, int y, uint32 color) {}
 	void flipAndDisplay(Mat & toFlip, const String window, int wait);
-	void getFrame();
+	bool getFrame();
 	bool getSensorPresence();
 
 private:
