@@ -34,20 +34,25 @@ void App::Init()
 		}
 		SafeRelease(depthFrameSource);
 		foundSensor = true;
-		cv::namedWindow("CvOutput", CV_WINDOW_KEEPRATIO);
+		
 		depthBuffer = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
 		while(!getFrame());
-
+		config = new Configure(Rect(30,30,30,30),Point(0,0),Point(0,0));
 		Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
 		Mat NormMat;
 		Mat DisplayMat;
+		Mat imgCropped;
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
-
 		NormMat.convertTo(DisplayMat, CV_8UC3);
-		flipAndDisplay(DisplayMat, "CvOutput", 0);
+		//flipAndDisplay(DisplayMat, "CvOutput", 0);
+		config->cropWindow(DisplayMat);
+		//config->showImage(DisplayMat, config->cropRect);
+		//cv::namedWindow("CvOutput1", CV_WINDOW_KEEPRATIO);
+		//flipAndDisplay(DisplayMat, "CvOutput1", 0);
 		SafeRelease(depthFrame);
-		
+		cv::namedWindow("CvOutput", CV_WINDOW_NORMAL);
+		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 	}
 
 	
@@ -113,29 +118,52 @@ void App::Tick(float deltaTime)
 	
 
 		cv::Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
-		//printf("Depth Buffer Size %d", sizeof(depthBuffer));
-		double scale_factor = 1.0 / 256;
+
+		Mat matCropped = mat;
+		config->showImage(matCropped, config->cropRect);
+		double min, max;
+		minMaxLoc(matCropped, &min, &max);
+		printf("Minimum: %f ; Maximum: %f\n", min, max);
+		
+		for (int j = 0; j < mat.rows; j++)
+		{
+			for (int i = 0; i < mat.cols; i++)
+			{
+				if (mat.at<uint16>(j, i) > 1500)
+				{
+					mat.at<uint16>(j, i) = 0;
+				}
+			}
+		}
+		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
+
+		
+		
+
 		cv::Mat NormMat;
 		cv::Mat FlippedMat;
 		cv::Mat ScalledMat;
 		cv::Mat BeforeColouredMat;
 		cv::Mat BeforeInvertedMat;
-		
-		
+		cv::Mat ThresholdedMat;
+		//cv::threshold(mat, ThresholdedMat, 255.0, 0 ,THRESH_TOZERO);
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 
-		
+		int colmap = 4;
 		cv::Mat DisplayMat;
 		NormMat.convertTo(BeforeColouredMat, CV_8UC3);
-		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, 4);
+		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
+		//cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
 
 		//printf("Value: %d \n", mat.at<uint16>(510,420));
+		
+		
+		config->showImage(DisplayMat, config->cropRect);
 		flipAndDisplay(DisplayMat, "CvOutput", 2);
 
 		SafeRelease(depthFrame);
 	}
-
 }
 
 void App::Shutdown()

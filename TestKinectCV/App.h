@@ -63,4 +63,5 @@ private:
 	uint* depthBufferOpCvSize = nullptr;
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
+	Configure* config; 
 };
