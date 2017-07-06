@@ -12,8 +12,6 @@ typedef steady_clock Clock;
 int main(int, char**)
 {
 
-
-
 	////allocate a pixel buffer
 	uint32* pixelBuffer = new uint32[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 	if (pixelBuffer == nullptr)

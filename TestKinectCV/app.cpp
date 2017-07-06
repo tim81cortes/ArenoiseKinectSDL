@@ -1,8 +1,13 @@
-#include "App.h"
+#include "App.h"	
+#include "synthTone.h"
 
 void App::Init()
 {
 	// Put initialization stuff here
+	
+
+	SDL_Init(SDL_INIT_AUDIO);
+
 	HRESULT hr;
 	BOOLEAN *kinectAvailability = false;
 	hr = GetDefaultKinectSensor(&m_sensor);
@@ -17,6 +22,7 @@ void App::Init()
 		
 	
 		m_sensor->Open();
+		
 
 		IDepthFrameSource* depthFrameSource;
 		hr = m_sensor->get_DepthFrameSource(&depthFrameSource);
@@ -90,55 +96,38 @@ bool App::getSensorPresence()
 }
 void App::Tick(float deltaTime)
 {
+
 	//cv::setBreakOnError(true);
 	
 	//put update and drawing stuff here
-	//HRESULT hr;
-	
-	
-	
+	//HRESULT hr;	
 	
 	if (true == foundSensor)
 	{
-		//hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
-		//if (FAILED(hr))
-		//{
-		//	return;
-		//}
-	
-		////printf("Copying data \n");
-
-		//hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);	
-		//if (FAILED(hr))
-		//{	
-		//	printf("There was a problem copying the frame data to a buffer. \n");
-		//	return;
-		//}
 		getFrame();
-	
-
-		cv::Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);
-
-		Mat matCropped = mat;
-		config->showImage(matCropped, config->cropRect);
-		double min, max;
-		minMaxLoc(matCropped, &min, &max);
-		printf("Minimum: %f ; Maximum: %f\n", min, max);
-		
+		cv::Mat mat(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, &depthBuffer[0]);		
 		for (int j = 0; j < mat.rows; j++)
 		{
 			for (int i = 0; i < mat.cols; i++)
 			{
-				if (mat.at<uint16>(j, i) > 1500)
+				if (mat.at<uint16>(j, i) > 1400)
 				{
 					mat.at<uint16>(j, i) = 0;
 				}
 			}
 		}
 		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
+		Mat matCropped = mat.clone();
+		medianBlur(mat.clone(), matCropped, 5);
+		config->showImage(matCropped, config->cropRect);
+		double min, max;
+		double vmin, vmax;
+		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 
-		
-		
+		minMaxIdx(matCropped, &vmin, &vmax, idx_min, idx_max);
+		printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MayY %d   \n"
+			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+
 
 		cv::Mat NormMat;
 		cv::Mat FlippedMat;
@@ -146,6 +135,7 @@ void App::Tick(float deltaTime)
 		cv::Mat BeforeColouredMat;
 		cv::Mat BeforeInvertedMat;
 		cv::Mat ThresholdedMat;
+		Mat PlottedMat;
 		//cv::threshold(mat, ThresholdedMat, 255.0, 0 ,THRESH_TOZERO);
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 
@@ -155,11 +145,20 @@ void App::Tick(float deltaTime)
 		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
 		//cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
-
+		//circle(DisplayMat, Point(maxLocation2,maxLocation2), 30, Scalar(0, 0, 255), 2);
 		//printf("Value: %d \n", mat.at<uint16>(510,420));
-		
-		
 		config->showImage(DisplayMat, config->cropRect);
+		circle(DisplayMat, Point(idx_min[1],idx_min[0]), 30, Scalar(0, 255, 0), 2);
+		circle(DisplayMat, Point(idx_max[1], idx_max[0]), 30, Scalar(0, 0, 255), 2);
+		
+
+		/*int duration = 1000;
+		double Hz = 440;
+
+		Beeper b;
+		b.beep(Hz, duration);
+		b.wait();*/
+		
 		flipAndDisplay(DisplayMat, "CvOutput", 2);
 
 		SafeRelease(depthFrame);

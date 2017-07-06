@@ -16,6 +16,7 @@
 #include<conio.h>           
 #include "configureApp.h"
 
+
 // size of window
 #define DEPTHMAPWIDTH 512
 #define DEPTHMAPHEIGHT 424

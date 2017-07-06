@@ -106,11 +106,13 @@
     <ClCompile Include="app.cpp" />
     <ClCompile Include="configure.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="synthTone.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="configureApp.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="synthTone.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
