@@ -23,7 +23,13 @@ int main(int, char**)
 	////clear the pixel buffer
 	memset(pixelBuffer, 0, DEPTHMAPWIDTH * DEPTHMAPHEIGHT * 4);
 
+	UdpTransmitSocket transmitSocket(IpEndpointName(ADDRESS, PORT));
+	//UdpTransmitSocket udpTransmitSocket1 = transmitSocket;
 
+	char buffer[OUTPUT_BUFFER_SIZE];
+	//char* buffer1 = buffer;
+
+	osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
 
 	App app;
 	app.SetPixelBuffer(pixelBuffer);
@@ -43,8 +49,8 @@ int main(int, char**)
 		lastTime = now;
 
 		//update the application
-		app.Tick(deltaTime);
-
+		app.Tick(deltaTime, p, transmitSocket);
+		
 
 	}
 	

@@ -5,9 +5,6 @@ void App::Init()
 {
 	// Put initialization stuff here
 	
-
-	SDL_Init(SDL_INIT_AUDIO);
-
 	HRESULT hr;
 	BOOLEAN *kinectAvailability = false;
 	hr = GetDefaultKinectSensor(&m_sensor);
@@ -19,11 +16,7 @@ void App::Init()
 	}
 	else 
 	{
-		
-	
 		m_sensor->Open();
-		
-
 		IDepthFrameSource* depthFrameSource;
 		hr = m_sensor->get_DepthFrameSource(&depthFrameSource);
 		if (FAILED(hr))
@@ -31,7 +24,6 @@ void App::Init()
 			printf("Failed to get the depthframe source.\n");
 			exit(10);
 		}
-	
 		hr = depthFrameSource->OpenReader(&m_depthFrameReader);
 		if (FAILED(hr))
 		{
@@ -51,11 +43,7 @@ void App::Init()
 		Mat imgCropped;
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		NormMat.convertTo(DisplayMat, CV_8UC3);
-		//flipAndDisplay(DisplayMat, "CvOutput", 0);
 		config->cropWindow(DisplayMat);
-		//config->showImage(DisplayMat, config->cropRect);
-		//cv::namedWindow("CvOutput1", CV_WINDOW_KEEPRATIO);
-		//flipAndDisplay(DisplayMat, "CvOutput1", 0);
 		SafeRelease(depthFrame);
 		cv::namedWindow("CvOutput", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -80,8 +68,6 @@ bool App::getFrame()
 		return false;
 	}
 
-	//printf("Copying data \n");
-
 	hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBuffer);
 	if (FAILED(hr))
 	{
@@ -94,14 +80,9 @@ bool App::getSensorPresence()
 {
 	return foundSensor;
 }
-void App::Tick(float deltaTime)
+void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock)
 {
 
-	//cv::setBreakOnError(true);
-	
-	//put update and drawing stuff here
-	//HRESULT hr;	
-	
 	if (true == foundSensor)
 	{
 		getFrame();
@@ -120,13 +101,12 @@ void App::Tick(float deltaTime)
 		Mat matCropped = mat.clone();
 		medianBlur(mat.clone(), matCropped, 5);
 		config->showImage(matCropped, config->cropRect);
-		double min, max;
 		double vmin, vmax;
 		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 
 		minMaxIdx(matCropped, &vmin, &vmax, idx_min, idx_max);
-		printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MayY %d   \n"
-			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+		//printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+			//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
 
 
 		cv::Mat NormMat;
@@ -138,29 +118,42 @@ void App::Tick(float deltaTime)
 		Mat PlottedMat;
 		//cv::threshold(mat, ThresholdedMat, 255.0, 0 ,THRESH_TOZERO);
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
-
 		int colmap = 4;
 		cv::Mat DisplayMat;
 		NormMat.convertTo(BeforeColouredMat, CV_8UC3);
 		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
-		//cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
-		//circle(DisplayMat, Point(maxLocation2,maxLocation2), 30, Scalar(0, 0, 255), 2);
-		//printf("Value: %d \n", mat.at<uint16>(510,420));
 		config->showImage(DisplayMat, config->cropRect);
 		circle(DisplayMat, Point(idx_min[1],idx_min[0]), 30, Scalar(0, 255, 0), 2);
 		circle(DisplayMat, Point(idx_max[1], idx_max[0]), 30, Scalar(0, 0, 255), 2);
 		
+		// scale the values to map to the parameter they control
+		uint16 pitchVal = 48 + floor(double(35) / matCropped.cols * idx_max[1]);
+		uint16 lpfVal = 1000 + floor(double(2000) / matCropped.cols * idx_max[0]); 
 
-		/*int duration = 1000;
-		double Hz = 440;
-
-		Beeper b;
-		b.beep(Hz, duration);
-		b.wait();*/
+		// Send OSC
+		printf("Columns: %d Rows: %d Pitch: %d CutoffFrequency: %d \n", matCropped.cols, matCropped.rows, pitchVal, lpfVal);
 		
-		flipAndDisplay(DisplayMat, "CvOutput", 2);
+		
+		// Only send a message when the changes occur near the surface
+		// Exclude changes far above and below the surface
+		if (vmax < 1950 && vmin > 1000) {
+		
+			if (abs(vmin - currentMin) > 30) {
+				try {
+					printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
+					outBoundPS	<< osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
+					trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
+					outBoundPS.Clear();
+				}
+				catch(Exception e){
+					printf("Error: %s %s", e.err, e.msg);
+				}
+			}
+		}
 
+		currentMin = vmin;		  
+		flipAndDisplay(DisplayMat, "CvOutput", 2);
 		SafeRelease(depthFrame);
 	}
 }

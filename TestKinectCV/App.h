@@ -15,6 +15,14 @@
 #include<opencv2/imgproc/imgproc.hpp>
 #include<conio.h>           
 #include "configureApp.h"
+#include "osc/OscOutboundPacketStream.h"
+#include "ip/UdpSocket.h"
+
+
+#define ADDRESS "127.0.0.1"
+#define PORT 8000
+
+#define OUTPUT_BUFFER_SIZE 1024
 
 
 // size of window
@@ -34,6 +42,8 @@ typedef short int16;
 typedef int int32;
 typedef long long int64;
 
+
+
 // safe way of deflating a COM object
 template<typename T>
 void SafeRelease(T& ptr) { if(ptr) { ptr->Release(); ptr = nullptr; } }
@@ -41,7 +51,7 @@ void SafeRelease(T& ptr) { if(ptr) { ptr->Release(); ptr = nullptr; } }
 class App {
 public:
 	void Init();
-	void Tick(float deltaTime);
+	void Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock);
 	void Shutdown();
 
 	void SetPixelBuffer(uint32* pixelBuffer) {m_pixelBuffer = pixelBuffer; }
@@ -51,6 +61,7 @@ public:
 	void flipAndDisplay(Mat & toFlip, const String window, int wait);
 	bool getFrame();
 	bool getSensorPresence();
+	//osc::OutboundPacketStream p1;
 
 private:
 	//pointer to buffer that containes pixels that get pushed to the screen
@@ -65,4 +76,7 @@ private:
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
+	uint16 currentMin;
+
+	
 };
