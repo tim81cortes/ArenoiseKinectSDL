@@ -70,13 +70,16 @@ private:
 	uint32* m_pixelBuffer = nullptr;
 	IKinectSensor* m_sensor = nullptr;
 	IDepthFrameReader* m_depthFrameReader = nullptr;
-	uint16* depthBuffer = nullptr;
+	uint16* depthBufferUpdatedSurface = nullptr;
+	uint16* depthBufferCurrentDepthFrame = nullptr;
 	uint16* depthBufferOpCv = nullptr;
 	uint* depthBufferOpCvSize = nullptr;
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
 	uint16 currentMin;
+	Mat updatedSurface;
+	bool initFrameDone = false;
 
 	
 };

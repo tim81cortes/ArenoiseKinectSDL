@@ -1,18 +1,23 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
+#include <vector>
+#include <iostream>
 
 using namespace cv;
-//using namespace osc;
 
 
 class Configure {
 
 private:
-	
 	Point P1;
 	Point P2;
-	bool clicked;
+	bool justReleased = false;
+	bool wasClicked = false;
+	// The first 1 rectangles is responsible for defining the interaction area of the screen.
+	// The rest are used to manage dead pixels
+	bool displayAreaSet = false;
+	std::vector<Rect> rectangles;
 
 public:
 	Rect cropRect;
@@ -20,8 +25,8 @@ public:
 	//~Configure();
 	void onMouse(int event, int x, int y);
 	static void onMouse(int event, int x, int y, int, void* userdata);
-	void cropWindow(Mat& capturedImage);
-	void showImage(Mat& src, Rect crpdRct);
+	void defineRegions(Mat& capturedImage);
+	void applyConfigurationSettingsToMatrix(Mat& src);
 	void checkBoundary(Mat& src);
 };
 
