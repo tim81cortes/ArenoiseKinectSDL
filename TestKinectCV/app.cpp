@@ -97,14 +97,14 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			for (int i = 0; i < depthMatOriginal.cols; i++)
 			{
-				if (depthMatOriginal.at<uint16>(j, i) > emptyBoxMinReferrence)
+				if (depthMatOriginal.at<uint16>(j, i) > 1300)
 				{
-					depthMatOriginal.at<uint16>(j, i) = 0;
+					depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
 
 				}
 				else
 				{
-					if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != 0 && !updatedSurface.empty())
+					if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence && !updatedSurface.empty())
 					{
 						updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
 					}
@@ -115,26 +115,16 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
 		Mat matCropped(config->cropRect.height, config->cropRect.width, CV_16U);
 		Mat Mat2Cropped = updatedSurface.clone();	
-		//medianBlur(depthMatOriginal.clone(), matCropped, 5); //TODO remove .clone() if possible
-		//medianBlur(updatedSurface.clone(), Mat2Cropped, 5); //TODO remove .clone() if possible
 
-		//config->applyConfigurationSettingsToMatrix(matCropped);
-
-	/*	for (int j = 0; j < matCropped.rows; j++)
-		{
-			for (int i = 0; i < matCropped.cols; i++)
-			{
-
-			}
-		}*/
 
 
 		double vmin, vmax;
 		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+		config->applyConfigurationSettingsToMatrix(depthMatOriginal);
 
-		minMaxIdx(matCropped, &vmin, &vmax, idx_min, idx_max);
-		//printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-			//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+		minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
+		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);*/
 
 		cv::Mat NormMat;
 		cv::Mat FlippedMat;
@@ -144,7 +134,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cv::Mat ThresholdedMat;
 		Mat PlottedMat;
 		//cv::threshold(mat, ThresholdedMat, 255.0, 0 ,THRESH_TOZERO);
-		config->applyConfigurationSettingsToMatrix(depthMatOriginal);
 		//cv::normalize(depthMatOriginal, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		int colmap = 4;
 		cv::Mat DisplayMat;
@@ -173,10 +162,29 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		config->applyConfigurationSettingsToMatrix(Mat2Cropped);
 		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, CV_MINMAX, CV_16UC1);
 
+
+
 		cv::Mat DisplayMat2;
 		
 		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
-		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap + 5);
+		
+		Mat _tmp, _tmp1, depthf; //minimum observed value is ~440. so shift a bit
+		//Mat(BeforeColouredMat2).convertTo(_tmp1, CV_64FC1);
+
+		Point minLoc; double minval, maxval;
+		minMaxLoc(BeforeColouredMat2, &minval, &maxval, NULL, NULL);
+		//BeforeColouredMat2.convertTo(depthf, CV_8UC1, 255.0 / maxval);  //linear interpolation
+
+														   //use a smaller version of the image
+		Mat small_depthf; 
+		resize(BeforeColouredMat2, small_depthf, Size(), 0.2, 0.2);
+		//inpaint only the "unknown" pixels
+		inpaint(small_depthf, (small_depthf == 255), _tmp1, 5.0, 1);
+
+		resize(_tmp1, _tmp, BeforeColouredMat2.size());
+		_tmp.copyTo(BeforeColouredMat2, (BeforeColouredMat2 == 255));  //add the original signal back over the inpaint
+		
+		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		//cv::bitwise_not(BeforeInvertedMat2, DisplayMat2);
 		
 		
@@ -189,24 +197,27 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		//printf("Columns: %d Rows: %d Pitch: %d CutoffFrequency: %d \n", matCropped.cols, matCropped.rows, pitchVal, lpfVal);
 		// Only send a message when the changes occur near the surface
 		// Exclude changes far above and below the surface
-		if (vmax < 1950 && vmin > 1000) 
+		
+		//printf("Criteria 1 met.\n");
+		if (abs(vmax - currentMax) > 50 && vmax < 500) 
 		{
-			if (abs(vmin - currentMin) > 10) 
+			printf("Criteria 2 met should now send osc.\n");
+			try 
 			{
-				try 
-				{
-					printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
-					outBoundPS	<< osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
-					trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
-					outBoundPS.Clear();
-				}
-				catch(Exception e)
-				{
-					printf("Error: %s %s", e.err, e.msg);
-				}
+				printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
+				printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+					, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+				outBoundPS	<< osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
+				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
+				outBoundPS.Clear();
+			}
+			catch(Exception e)
+			{
+				printf("Error: %s %s", e.err, e.msg);
 			}
 		}
-		currentMin = vmin;		  
+		
+		currentMax = vmax;		  
 		flipAndDisplay(DisplayMat, "CvOutput", 2);
 		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
 

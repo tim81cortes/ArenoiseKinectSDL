@@ -13,6 +13,7 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
+#include<opencv2/photo/photo.hpp>
 #include<conio.h>           
 #include "configureApp.h"
 #include "osc/OscOutboundPacketStream.h"
@@ -77,7 +78,7 @@ private:
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
-	uint16 currentMin;
+	uint16 currentMax;
 	Mat updatedSurface;
 	bool initFrameDone = false;
 	uint16 emptyBoxMinReferrence;
