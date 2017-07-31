@@ -28,5 +28,7 @@ public:
 	void defineRegions(Mat& capturedImage);
 	void applyConfigurationSettingsToMatrix(Mat& src);
 	void checkBoundary(Mat& src);
+	unsigned short loadConfigurationData(String depthFrameName);
+	unsigned short boxBottom = 1150;
 };
 

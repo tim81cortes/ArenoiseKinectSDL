@@ -80,6 +80,7 @@ private:
 	uint16 currentMin;
 	Mat updatedSurface;
 	bool initFrameDone = false;
+	uint16 emptyBoxMinReferrence;
 
 	
 };

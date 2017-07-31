@@ -4,6 +4,9 @@
 
 void App::Init()
 {	
+	config = new Configure(Rect(30, 30, 30, 30), Point(0, 0), Point(0, 0));
+	String filename = "EmptySandboxInteractionArea1.xml";
+	emptyBoxMinReferrence = config->loadConfigurationData(filename);
 	HRESULT hr;
 	BOOLEAN *kinectAvailability = false;
 	hr = GetDefaultKinectSensor(&m_sensor);
@@ -36,7 +39,6 @@ void App::Init()
 		depthBufferCurrentDepthFrame = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
 		while(!getFrame());
-		config = new Configure(Rect(30,30,30,30),Point(0,0),Point(0,0));
 		
 		Mat mat2(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);
 		Mat NormMat;
@@ -95,7 +97,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			for (int i = 0; i < depthMatOriginal.cols; i++)
 			{
-				if (depthMatOriginal.at<uint16>(j, i) > 1250)
+				if (depthMatOriginal.at<uint16>(j, i) > emptyBoxMinReferrence)
 				{
 					depthMatOriginal.at<uint16>(j, i) = 0;
 
@@ -113,18 +115,18 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
 		Mat matCropped(config->cropRect.height, config->cropRect.width, CV_16U);
 		Mat Mat2Cropped = updatedSurface.clone();	
-		medianBlur(depthMatOriginal.clone(), matCropped, 5); //TODO remove .clone() if possible
+		//medianBlur(depthMatOriginal.clone(), matCropped, 5); //TODO remove .clone() if possible
 		//medianBlur(updatedSurface.clone(), Mat2Cropped, 5); //TODO remove .clone() if possible
 
-		config->applyConfigurationSettingsToMatrix(matCropped);
+		//config->applyConfigurationSettingsToMatrix(matCropped);
 
-		for (int j = 0; j < matCropped.rows; j++)
+	/*	for (int j = 0; j < matCropped.rows; j++)
 		{
 			for (int i = 0; i < matCropped.cols; i++)
 			{
 
 			}
-		}
+		}*/
 
 
 		double vmin, vmax;
@@ -143,10 +145,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		Mat PlottedMat;
 		//cv::threshold(mat, ThresholdedMat, 255.0, 0 ,THRESH_TOZERO);
 		config->applyConfigurationSettingsToMatrix(depthMatOriginal);
-		cv::normalize(depthMatOriginal, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
+		//cv::normalize(depthMatOriginal, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		int colmap = 4;
 		cv::Mat DisplayMat;
-		NormMat.convertTo(BeforeColouredMat, CV_8UC3);
+		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
 		
@@ -169,11 +171,11 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		Mat PlottedMat2;
 		//cv::threshold(depthMatOriginal, ThresholdedMat2, 255.0, 0 ,THRESH_TOZERO);
 		config->applyConfigurationSettingsToMatrix(Mat2Cropped);
-		cv::normalize(Mat2Cropped, NormMat2, 0, 255, CV_MINMAX, CV_16UC1);
+		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, CV_MINMAX, CV_16UC1);
 
 		cv::Mat DisplayMat2;
 		
-		NormMat2.convertTo(BeforeColouredMat2, CV_8UC3);
+		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
 		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap + 5);
 		//cv::bitwise_not(BeforeInvertedMat2, DisplayMat2);
 		
@@ -189,7 +191,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// Exclude changes far above and below the surface
 		if (vmax < 1950 && vmin > 1000) 
 		{
-			if (abs(vmin - currentMin) > 30) 
+			if (abs(vmin - currentMin) > 10) 
 			{
 				try 
 				{

@@ -90,7 +90,6 @@ void Configure::onMouse(int event, int x, int y) {
 
 }
 
-
 void Configure::onMouse(int event, int x, int y, int f, void* userData) {
 	if (userData == nullptr)
 	{
@@ -105,7 +104,6 @@ void Configure::onMouse(int event, int x, int y, int f, void* userData) {
 void Configure::defineRegions(Mat& capturedImage) {
 	
 	namedWindow("Choose interaction area then highlight dead pixels.", CV_WINDOW_NORMAL);
-	char c;
 	do {
 		setMouseCallback("Choose interaction area then highlight dead pixels.", onMouse, this);
 		imshow("Choose interaction area then highlight dead pixels.", capturedImage);
@@ -132,7 +130,7 @@ void Configure::applyConfigurationSettingsToMatrix(Mat& src) {
 		ROI = src(cropRect);
 
 	}
-
+	subtract(boxBottom, ROI, ROI);
 	//rectangle(img, cropRect, Scalar(0, 255, 0), 3, 8, 0);
 	src = ROI;
 }
@@ -150,4 +148,32 @@ void Configure::checkBoundary(Mat& src) {
 
 	if (cropRect.y<0)
 		cropRect.height = 0;
+}
+
+unsigned short Configure::loadConfigurationData(String depthFrameName)
+{
+	FileStorage fs;
+	Mat emptyBoxMat;
+	String qualifiedDepthFrameName = "ConfigurationFiles\\" + depthFrameName;
+
+	try 
+	{
+		FileStorage file(qualifiedDepthFrameName, FileStorage::READ);
+		file["EmptySandboxWholeDepthFrame"] >> emptyBoxMat;
+	}
+	catch (Exception e)
+	{
+		printf("There was an error loading the configuration file. %s \n" , e.msg);
+	}
+	medianBlur(emptyBoxMat, emptyBoxMat, 5);
+	
+	double vmin, vmax;
+	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+	
+	minMaxIdx(emptyBoxMat, &vmin, &vmax, idx_min, idx_max);
+	printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+		, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+	fs.release();
+	boxBottom = vmax;
+	return boxBottom;
 }
