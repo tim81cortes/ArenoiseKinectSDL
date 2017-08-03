@@ -22,6 +22,7 @@ public:
 	static void onMouse(int event, int x, int y, int, void* userdata);
 	void cropWindow(Mat& capturedImage);
 	void showImage(Mat& src, Rect crpdRct);
+	void saveImage(Mat& src, Rect crpdRct);
 	void checkBoundary(Mat& src);
 };
 

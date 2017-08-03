@@ -5,6 +5,8 @@ void App::Init()
 {
 	// Put initialization stuff here
 	
+
+
 	HRESULT hr;
 	BOOLEAN *kinectAvailability = false;
 	hr = GetDefaultKinectSensor(&m_sensor);
@@ -44,9 +46,11 @@ void App::Init()
 		cv::normalize(mat, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		NormMat.convertTo(DisplayMat, CV_8UC3);
 		config->cropWindow(DisplayMat);
+		config->saveImage(mat,config->cropRect);
 		SafeRelease(depthFrame);
 		cv::namedWindow("CvOutput", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
 	}
 
 	
@@ -101,6 +105,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		Mat matCropped = mat.clone();
 		medianBlur(mat.clone(), matCropped, 5);
 		config->showImage(matCropped, config->cropRect);
+		
 		double vmin, vmax;
 		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 

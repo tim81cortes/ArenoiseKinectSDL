@@ -83,12 +83,10 @@ void Configure::cropWindow(Mat& capturedImage) {
 	Mat imgCanny;           // Canny edge image
 	
 	namedWindow("WhichArea", CV_WINDOW_NORMAL);
-	//namedWindow("cropped", CV_WINDOW_NORMAL);
 	setMouseCallback("WhichArea", onMouse, this);
 	imshow("WhichArea", capturedImage);
 	waitKey(0); // show windows
-	//imgCropped = capturedImage.clone();
-	//capturedImage = imgCropped;
+
 
 }
 void Configure::showImage(Mat& src, Rect crpdRct) {
@@ -103,6 +101,26 @@ void Configure::showImage(Mat& src, Rect crpdRct) {
 	}
 
 	rectangle(img, crpdRct, Scalar(0, 255, 0), 3, 8, 0);
+	src = ROI;
+}
+
+void Configure::saveImage(Mat& src, Rect crpdRct) {
+	Mat img;
+	Mat ROI;
+	FileStorage file("FullSandboxWholeDepthFrame.xml", FileStorage::WRITE);
+	FileStorage file2("FullSandboxInsideBox.xml", FileStorage::WRITE);
+	img = src.clone();
+	checkBoundary(src);
+	if (crpdRct.width>0 && crpdRct.height>0) {
+		ROI = src(crpdRct);
+	}
+
+	rectangle(img, crpdRct, Scalar(0, 255, 0), 3, 8, 0);
+	file << "EmptySandboxWholeDepthFrame" << ROI;
+	file2 << "EmptySandboxInsideBox" << src;
+	file.release();
+	file2.release();
+	
 	src = ROI;
 }
 
