@@ -2,10 +2,10 @@
 
 Configure::Configure(Rect crpRct, Point pnt1, Point pnt2)
 {
-	cropRect = crpRct;
+	cropRect[0] = crpRct;
+	cropRect[1] = crpRct;
 	P1 = pnt1;
 	P2 = pnt2;
-
 }
 
 void Configure::onMouse(int event, int x, int y) {
@@ -37,12 +37,7 @@ void Configure::onMouse(int event, int x, int y) {
 		printf("ButtonUp");
 		break;
 
-	/*case  CV_EVENT_MOUSEMOVE:
-		if (released) {
-			P2.x = x;
-			P2.y = y;
-		}
-		break;*/
+
 
 	default:   break;
 
@@ -76,9 +71,15 @@ void Configure::onMouse(int event, int x, int y) {
 		}
 		if (!displayAreaSet)
 		{
-			cropRect = tempRect;
-			printf("Interaction area set as X: %d Y: %d W: %d H: %d \n", cropRect.x, cropRect.y, cropRect.width, cropRect.height);
+			cropRect[0] = tempRect;
+			printf("Interaction area 1 set as X: %d Y: %d W: %d H: %d \n", cropRect[0].x, cropRect[0].y, cropRect[0].width, cropRect[0].height);
 			displayAreaSet = true;
+		}
+		else if(displayAreaSet && !sideOfBoxAreaSet)
+		{
+			cropRect[1] = tempRect;
+			printf("Interaction area 2 set as X: %d Y: %d W: %d H: %d \n", cropRect[1].x, cropRect[1].y, cropRect[1].width, cropRect[1].height);
+			sideOfBoxAreaSet = true;
 		}
 		else
 		{
@@ -112,69 +113,96 @@ void Configure::defineRegions(Mat& capturedImage) {
 	
 
 }
-void Configure::applyConfigurationSettingsToMatrix(Mat& src) {
-	Mat img;
-	Mat ROI;
+	void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea) {
+	Mat ROI; // Secondary interaction area i.e. the white platform next to the pit
+ 
 
-	img = src.clone();
 	checkBoundary(src);
 	
 	for (int i = 0; i < rectangles.size(); i++)
 	{
 		if (rectangles[i].width>0 && rectangles[i].height>0) {
-			//GaussianBlur(src(rectangles[i]), src(rectangles[i]), Size(0,0), 4);
 			medianBlur(src(rectangles[i]), src(rectangles[i]), 5);
 		}
 	}
-	if (cropRect.width>0 && cropRect.height>0) {
-		ROI = src(cropRect);
 
-	}
-	subtract(boxBottom, ROI, ROI);
-	//rectangle(img, cropRect, Scalar(0, 255, 0), 3, 8, 0);
+		if (cropRect[whichArea].width>0 && cropRect[whichArea].height>0) {
+			ROI = src(cropRect[whichArea]);
+		}
+		
+		if (whichArea) {
+
+			printf("Zero referencing area %d the matrix from value %d", whichArea , boxBottom[whichArea]);
+		}
+
+	subtract((boxBottom[whichArea]), ROI, ROI);
 	src = ROI;
 }
 
-void Configure::checkBoundary(Mat& src) {
-	//check croping rectangle exceed image boundary
-	if (cropRect.width>src.cols - cropRect.x)
-		cropRect.width = src.cols - cropRect.x;
 
-	if (cropRect.height>src.rows - cropRect.y)
-		cropRect.height = src.rows - cropRect.y;
 
-	if (cropRect.x<0)
-		cropRect.x = 0;
-
-	if (cropRect.y<0)
-		cropRect.height = 0;
-}
-
-unsigned short Configure::loadConfigurationData(String depthFrameName)
-{
+int Configure::getZeroReferenceFromFile(String depthFrameName) {
 	FileStorage fs;
-	Mat emptyBoxMat;
+	Mat emptyBoxFromFile;
 	String qualifiedDepthFrameName = "ConfigurationFiles\\" + depthFrameName;
 
-	try 
+	try
 	{
 		FileStorage file(qualifiedDepthFrameName, FileStorage::READ);
-		file["EmptySandboxWholeDepthFrame"] >> emptyBoxMat;
+		file["EmptySandboxWholeDepthFrame"] >> emptyBoxFromFile;
 	}
 	catch (Exception e)
 	{
-		printf("There was an error loading the configuration file. %s \n" , e.msg);
+		printf("There was an error loading the configuration file. %s \n", e.msg);
 		exit(1);
 	}
-	medianBlur(emptyBoxMat, emptyBoxMat, 5);
 	
+	fs.release();
+	boxBottom[0] = getZeroReference(emptyBoxFromFile);
+}
+
+int Configure::getZeroReferenceFromMatrix(Mat src) {
+	Mat ROI;
+
+	if (cropRect[1].width>0 && cropRect[1].height>0) {
+		ROI = src(cropRect[1]);
+	}
+	boxBottom[1] = getZeroReference(ROI);
+	return boxBottom[1];
+}
+
+
+
+void Configure::checkBoundary(Mat& src) {
+	//check croping rectangle exceed image boundary
+	for (int i = 0; i < 2; i++) {
+		if (cropRect[i].width > src.cols - cropRect[i].x)
+			cropRect[i].width = src.cols - cropRect[i].x;
+
+		if (cropRect[i].height > src.rows - cropRect[i].y)
+			cropRect[i].height = src.rows - cropRect[i].y;
+
+		if (cropRect[i].x < 0)
+			cropRect[i].x = 0;
+
+		if (cropRect[i].y < 0)
+			cropRect[i].height = 0;
+	}
+}
+unsigned short Configure::getZeroReference(Mat initDepthFrame) {
+	unsigned short maxVal = 1150;
+	Mat blurMat = initDepthFrame.clone();
+	medianBlur(blurMat, blurMat, 5);
+
 	double vmin, vmax;
 	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
-	
-	minMaxIdx(emptyBoxMat, &vmin, &vmax, idx_min, idx_max);
-	printf("MinVal: %f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-		, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
-	fs.release();
-	boxBottom = vmax;
-	return boxBottom;
+
+	minMaxIdx(blurMat, &vmin, &vmax, idx_min, idx_max);
+	printf("MaxVal: %5.0f \n"
+		, vmax);
+	maxVal = unsigned short(vmax);
+	return maxVal;
 }
+
+
+

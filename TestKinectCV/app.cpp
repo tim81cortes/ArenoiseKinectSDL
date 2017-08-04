@@ -5,7 +5,7 @@ void App::Init()
 {	
 	config = new Configure(Rect(30, 30, 30, 30), Point(0, 0), Point(0, 0));
 	String filename = "EmptySandboxInteractionArea1.xml";
-	emptyBoxMinReferrence = config->loadConfigurationData(filename);
+	emptyBoxMinReferrence = config->getZeroReferenceFromFile(filename);
 	HRESULT hr;
 	BOOLEAN *kinectAvailability = false;
 	hr = GetDefaultKinectSensor(&m_sensor);
@@ -34,7 +34,6 @@ void App::Init()
 		SafeRelease(depthFrameSource);
 		foundSensor = true;
 		
-		//depthBufferUpdatedSurface = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 		depthBufferCurrentDepthFrame = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
 		while(!getFrame());
@@ -45,7 +44,9 @@ void App::Init()
 		Mat imgCropped;
 		cv::normalize(mat2, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		NormMat.convertTo(DisplayMat, CV_8UC3);
-		config->defineRegions(DisplayMat);
+		config->defineRegions(DisplayMat);		
+		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
+
 		// Set flag to say that subsequent frames should be sent to different array
 		initFrameDone = true;
 		mat2.copyTo(updatedSurface);
@@ -91,7 +92,8 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	{
 		getFrame();
 		Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
-		
+		Mat _2ndInteractnArea = depthMatOriginal.clone();
+		config->applyConfigurationSettingsToMatrix(_2ndInteractnArea, 1);
 		for (int j = 0; j < depthMatOriginal.rows; j++)
 		{
 			for (int i = 0; i < depthMatOriginal.cols; i++)
@@ -112,18 +114,28 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			}
 		}
 		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
-		Mat matCropped(config->cropRect.height, config->cropRect.width, CV_16U);
+		Mat matCropped(config->cropRect[0].height, config->cropRect[0].width, CV_16U);
 		Mat Mat2Cropped = updatedSurface.clone();	
-
-
 
 		double vmin, vmax;
 		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
-		config->applyConfigurationSettingsToMatrix(depthMatOriginal);
+
+		double _2nd_vmin, _2nd_vmax;
+		int _2nd_idx_min[2] = { 255,255 }, _2nd_idx_max[2] = { 255, 255 };
+
+		
+
+		config->applyConfigurationSettingsToMatrix(depthMatOriginal, 0);
+		
 
 		minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
 		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
 			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);*/
+
+		minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
+		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+		, _2nd_vmin, _2nd_vmax, _2nd_idx_min[1], _2nd_idx_min[0], _2nd_idx_max[1], _2nd_idx_max[0]);*/
+		printf("MaxVal: %5.0f;  MaxX: %d MaxY %d\n", _2nd_vmax, _2nd_idx_max[1], _2nd_idx_max[0]);
 
 		Mat BeforeColouredMat;
 		Mat BeforeInvertedMat;
@@ -146,7 +158,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		Mat BeforeInvertedMat2;
 		Mat PlottedMat2;
 		
-		config->applyConfigurationSettingsToMatrix(Mat2Cropped);
+		config->applyConfigurationSettingsToMatrix(Mat2Cropped, 0);
 
 		Mat DisplayMat2;
 		
@@ -161,7 +173,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		uint16 lpfVal = 1000 + floor(double(2000) / matCropped.cols * idx_max[0]); 
 
 		// Send OSC when an event is triggered
-		
 		if (abs(vmax - currentMax) > 50 && vmax < 500) 
 		{
 			try 

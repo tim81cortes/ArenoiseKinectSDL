@@ -7,7 +7,7 @@
 
 // some often used STL Header Files
 #include <iostream>
-#include <vector>
+#include <queue>
 #include <memory>
 #include <Kinect.h>
 #include<opencv2/core/core.hpp>
@@ -18,6 +18,7 @@
 #include "configureApp.h"
 #include "osc/OscOutboundPacketStream.h"
 #include "ip/UdpSocket.h"
+
 
 
 #define ADDRESS "127.0.0.1"
@@ -82,6 +83,7 @@ private:
 	Mat updatedSurface;
 	bool initFrameDone = false;
 	uint16 emptyBoxMinReferrence;
-
+	uint16 _2ndInteractnAreaMinReferrence;
+	std::queue<Mat> framesForComparison;
 	
 };
