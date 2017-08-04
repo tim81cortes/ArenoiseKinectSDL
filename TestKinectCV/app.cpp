@@ -137,6 +137,23 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		int colmap = 4;
 		cv::Mat DisplayMat;
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+		
+		// Reduce noise using inpaint
+		Mat _tmp, _tmp1, depthf; 
+				 //Mat(BeforeColouredMat2).convertTo(_tmp1, CV_64FC1);
+
+		Point minLoc; double minval, maxval;
+		minMaxLoc(BeforeColouredMat, &minval, &maxval, NULL, NULL);
+
+		Mat small_depthf;
+		resize(BeforeColouredMat, small_depthf, Size(), 0.2, 0.2);
+		//inpaint only the "unknown" pixels
+		inpaint(small_depthf, (small_depthf == 255), _tmp1, 5.0, 1);
+
+		resize(_tmp1, _tmp, BeforeColouredMat.size());
+		_tmp.copyTo(BeforeColouredMat, (BeforeColouredMat == 255));  //add the original signal back over the inpaint
+
+	
 		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
 		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
 		

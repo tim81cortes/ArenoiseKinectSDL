@@ -1,2 +1,8 @@
-﻿  TestKinectCV.vcxproj -> C:\Projects\DevBranch1\x64\Debug\TestKinectCV.exe
-  TestKinectCV.vcxproj -> C:\Projects\DevBranch1\x64\Debug\TestKinectCV.pdb (Partial PDB)
+﻿cl : Command line warning D9028: minimal rebuild failure, reverting to normal build
+  app.cpp
+c:\projects\devbranch1\testkinectcv\app.cpp : fatal error C1041: cannot open program database 'C:\Projects\DevBranch1\TestKinectCV\x64\Debug\vc140.idb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+  configure.cpp
+c:\projects\devbranch1\testkinectcv\configure.cpp : fatal error C1041: cannot open program database 'C:\Projects\DevBranch1\TestKinectCV\x64\Debug\vc140.idb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+  main.cpp
+c:\projects\devbranch1\testkinectcv\main.cpp : fatal error C1041: cannot open program database 'C:\Projects\DevBranch1\TestKinectCV\x64\Debug\vc140.idb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+  Generating Code...
