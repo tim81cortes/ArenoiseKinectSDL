@@ -1,4 +1,5 @@
-﻿cl : Command line warning D9028: minimal rebuild failure, reverting to normal build
+﻿C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V140\Microsoft.CppClean.targets(76,5): warning : Access to the path 'c:\projects\devbranch1\testkinectcv\x64\debug\vc140.idb' is denied.
+cl : Command line warning D9028: minimal rebuild failure, reverting to normal build
   app.cpp
 c:\projects\devbranch1\testkinectcv\app.cpp : fatal error C1041: cannot open program database 'C:\Projects\DevBranch1\TestKinectCV\x64\Debug\vc140.idb'; if multiple CL.EXE write to the same .PDB file, please use /FS
   configure.cpp
