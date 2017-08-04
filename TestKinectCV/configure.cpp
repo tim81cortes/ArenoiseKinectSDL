@@ -164,6 +164,7 @@ unsigned short Configure::loadConfigurationData(String depthFrameName)
 	catch (Exception e)
 	{
 		printf("There was an error loading the configuration file. %s \n" , e.msg);
+		exit(1);
 	}
 	medianBlur(emptyBoxMat, emptyBoxMat, 5);
 	

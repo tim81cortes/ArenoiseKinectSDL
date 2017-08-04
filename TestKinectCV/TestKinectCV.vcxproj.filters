@@ -27,9 +27,6 @@
     <ClCompile Include="configure.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="synthTone.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h">
@@ -39,9 +36,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="configureApp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="synthTone.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

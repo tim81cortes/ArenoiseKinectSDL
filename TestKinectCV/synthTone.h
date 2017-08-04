@@ -1,5 +1,3 @@
-#include <SDL.h>
-#include <SDL_audio.h>
 #include <queue>
 #include <cmath>
 

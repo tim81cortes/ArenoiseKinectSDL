@@ -1,5 +1,4 @@
 #include "App.h"	
-#include "synthTone.h"
 #include <algorithm>
 
 void App::Init()
