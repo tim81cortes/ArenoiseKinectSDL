@@ -51,18 +51,18 @@ void App::Init()
 		initFrameDone = true;
 		mat2.copyTo(updatedSurface);
 		SafeRelease(depthFrame);
-		cv::namedWindow("CvOutput", CV_WINDOW_NORMAL);
+		namedWindow("CvOutput", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-		cv::namedWindow("CvOutput2", CV_WINDOW_NORMAL);
+		namedWindow("CvOutput2", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput2", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 	}
 }
 void App::flipAndDisplay(Mat& toFlip, const String window, int wait)
 {
-	cv::Mat toShow;
-	cv::flip(toFlip, toShow, 1);
-	cv::imshow(window, toShow);
-	cv::waitKey(wait);
+	Mat toShow;
+	flip(toFlip, toShow, 1);
+	imshow(window, toShow);
+	waitKey(wait);
 }
 bool App::getFrame()
 {
@@ -92,8 +92,53 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	{
 		getFrame();
 		Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
-		Mat _2ndInteractnArea = depthMatOriginal.clone();
+		Mat _2ndInteractnArea;
+		medianBlur(depthMatOriginal.clone(), _2ndInteractnArea, 5);
 		config->applyConfigurationSettingsToMatrix(_2ndInteractnArea, 1);
+
+		double _2nd_vmin, _2nd_vmax;
+		int _2nd_idx_min[2] = { 0,0 }, _2nd_idx_max[2] = { 0, 0 };
+		minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
+		if (abs(currentSideControlCoords[2] - _2nd_vmax) > 5 )		
+		{
+			currentSideControlCoords[2] = _2nd_vmax;
+		}
+		// Create a rectangle as tall as the sandbox config and as wide as the side control config
+		double scaledX, scaledY, scaledZ;
+		scaledX =  _2nd_idx_max[1] * 256 / config->cropRect[1].width;
+		scaledY = _2nd_idx_max[0] * 256 / config->cropRect[1].height;  
+		scaledZ = _2nd_vmax * 256 / _2ndInteractnAreaMinReferrence;
+		
+
+		double rectY = currentSideControlCoords[1] *  config->cropRect[0].height / 256;
+
+		Scalar sideControlColor; Rect sideControlRect;
+		if (scaledZ > 35 && scaledZ < 255)
+		{
+			sideControlColor = Scalar(0, scaledX, scaledZ);
+			sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
+			currentSideControlCoords[0] = scaledX;
+			currentSideControlCoords[1] = scaledY;
+			currentSideControlCoords[2] = scaledZ;
+		}
+		else
+		{
+			sideControlColor = Scalar(0, currentSideControlCoords[0], currentSideControlCoords[2]);
+			sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
+		}
+			
+		
+
+		
+		
+		//Rect sideControlRect(0, _2nd_idx_max[0], config->cropRect[1].width, config->cropRect[0].height - _2nd_idx_max[0]);
+		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+		, _2nd_vmin, _2nd_vmax, _2nd_idx_min[1], _2nd_idx_min[0], _2nd_idx_max[1], _2nd_idx_max[0]);*/
+		printf("MaxVal: %5.0f;  MaxX: %3.0f MaxY %3.0f \t", scaledZ, scaledX, scaledY);
+		printf("MaxVal: %5.0f;  MaxX: %d MaxY %d\n", _2nd_vmax,_2nd_idx_max[1], _2nd_idx_max[0]);
+		//printf("Rectx: %5.0f;  %3.0f\n", rectY);
+
+
 		for (int j = 0; j < depthMatOriginal.rows; j++)
 		{
 			for (int i = 0; i < depthMatOriginal.cols; i++)
@@ -110,7 +155,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 						updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
 					}
 				}
-
 			}
 		}
 		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
@@ -120,22 +164,11 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		double vmin, vmax;
 		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 
-		double _2nd_vmin, _2nd_vmax;
-		int _2nd_idx_min[2] = { 255,255 }, _2nd_idx_max[2] = { 255, 255 };
-
-		
-
 		config->applyConfigurationSettingsToMatrix(depthMatOriginal, 0);
 		
-
 		minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
 		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
 			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);*/
-
-		minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
-		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-		, _2nd_vmin, _2nd_vmax, _2nd_idx_min[1], _2nd_idx_min[0], _2nd_idx_max[1], _2nd_idx_max[0]);*/
-		printf("MaxVal: %5.0f;  MaxX: %d MaxY %d\n", _2nd_vmax, _2nd_idx_max[1], _2nd_idx_max[0]);
 
 		Mat BeforeColouredMat;
 		Mat BeforeInvertedMat;
@@ -144,16 +177,11 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cv::Mat DisplayMat;
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		
-
-	
-		cv::applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
-		cv::bitwise_not(BeforeInvertedMat, DisplayMat);
+		applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
+		bitwise_not(BeforeInvertedMat, DisplayMat);
 		
-		
-
 		// Second time arround with updating sand surface
 		
-
 		Mat BeforeColouredMat2;
 		Mat BeforeInvertedMat2;
 		Mat PlottedMat2;
@@ -163,7 +191,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		Mat DisplayMat2;
 		
 		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
-		
 		
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		//cv::bitwise_not(BeforeInvertedMat2, DisplayMat2);
@@ -190,10 +217,15 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			}
 		}
 		
-		currentMax = vmax;		  
-		flipAndDisplay(DisplayMat, "CvOutput", 2);
+		currentMax = vmax;
+		uint16 _2ndIntAreaWidth = config->cropRect[1].width;
+		Mat beforeDisplayMat(DisplayMat.rows, DisplayMat.cols + _2ndIntAreaWidth,  CV_8UC3);
+		
+		DisplayMat.copyTo(beforeDisplayMat(Rect(config->cropRect[1].width,0,DisplayMat.cols,DisplayMat.rows)));
+		rectangle(beforeDisplayMat, sideControlRect,sideControlColor,CV_FILLED);
+		flipAndDisplay(beforeDisplayMat, "CvOutput", 2);
 		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
-
+	
 		SafeRelease(depthFrame);
 	}
 }

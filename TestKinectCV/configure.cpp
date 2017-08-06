@@ -113,12 +113,10 @@ void Configure::defineRegions(Mat& capturedImage) {
 	
 
 }
-	void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea) {
+void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea) 
+{
 	Mat ROI; // Secondary interaction area i.e. the white platform next to the pit
- 
-
-	checkBoundary(src);
-	
+ 	checkBoundary(src);
 	for (int i = 0; i < rectangles.size(); i++)
 	{
 		if (rectangles[i].width>0 && rectangles[i].height>0) {
@@ -126,12 +124,12 @@ void Configure::defineRegions(Mat& capturedImage) {
 		}
 	}
 
-		if (cropRect[whichArea].width>0 && cropRect[whichArea].height>0) {
+		if (cropRect[whichArea].width>0 && cropRect[whichArea].height>0) 
+		{
 			ROI = src(cropRect[whichArea]);
 		}
-		
-		if (whichArea) {
-
+		if (whichArea) 
+		{
 			printf("Zero referencing area %d the matrix from value %d", whichArea , boxBottom[whichArea]);
 		}
 
