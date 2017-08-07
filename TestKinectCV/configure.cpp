@@ -86,9 +86,7 @@ void Configure::onMouse(int event, int x, int y) {
 			rectangles.push_back(tempRect);
 			printf("Rectangle added for blurring. X: %d Y: %d W: %d H: %d \n", tempRect.x, tempRect.y, tempRect.width, tempRect.height);
 		}
-
 	}
-
 }
 
 void Configure::onMouse(int event, int x, int y, int f, void* userData) {

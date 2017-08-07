@@ -10,6 +10,7 @@
 #include <queue>
 #include <memory>
 #include <Kinect.h>
+#include <string>
 #include<opencv2/core/core.hpp>
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
@@ -18,6 +19,7 @@
 #include "configureApp.h"
 #include "osc/OscOutboundPacketStream.h"
 #include "ip/UdpSocket.h"
+#include "DepthEvent.h"
 
 
 
@@ -76,6 +78,7 @@ private:
 	uint16* depthBufferCurrentDepthFrame = nullptr;
 	uint16* depthBufferOpCv = nullptr;
 	uint* depthBufferOpCvSize = nullptr;
+	std::queue<DepthEvent> dpthEvntQ;
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 

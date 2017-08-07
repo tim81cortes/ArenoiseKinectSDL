@@ -163,16 +163,25 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
 // HandleEvents
 	// Side control area
-	if (scaledZ > 35 && scaledZ < 255)
-	{
+	if (scaledZ > 35 && scaledZ < 100)
+	{	
+		_3dCoordinates scaledCoords;
+		scaledCoords.values[0] = scaledX;
+		scaledCoords.values[1] = scaledY;
+		scaledCoords.values[2] = scaledZ;
+		
+		
 		sideControlColor = Scalar(0, scaledX, scaledZ);
 		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
 		currentSideControlCoords[0] = scaledX;
 		currentSideControlCoords[1] = scaledY;
 		currentSideControlCoords[2] = scaledZ;
+		DepthEvent handOverSideControl("HandOverSideControl", dpthEvent::evnt_Toggle, scaledCoords, 1);
+		dpthEvntQ.emplace(handOverSideControl);
 	}
 	else
 	{
+		//DepthEvent endToggle("HandOverSideControl", dpthEvent::evnt_End);
 		sideControlColor = Scalar(0, currentSideControlCoords[0], currentSideControlCoords[2]);
 		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
 	}
@@ -181,13 +190,34 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
 
+	
+
 	if (abs(vmax - currentMax) > 50 && vmax < 500)
 	{
+		scaledX = idx_max[1] * 256 / config->cropRect[0].width;
+		scaledY = idx_max[0] * 256 / config->cropRect[0].height;
+		scaledZ = vmax * 256 / emptyBoxMinReferrence;
+		_3dCoordinates scaledCoords;
+		scaledCoords.values[0] = scaledX;
+		scaledCoords.values[1] = scaledY;
+		scaledCoords.values[2] = scaledZ;
+
+		sideControlColor = Scalar(0, scaledX, scaledZ);
+		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
+		currentSideControlCoords[0] = scaledX;
+		currentSideControlCoords[1] = scaledY;
+		currentSideControlCoords[2] = scaledZ;
+		DepthEvent handOverSideControl("RemovedHandsFromSandBoxArea", dpthEvent::evnt_Toggle, scaledCoords, 1);
+		dpthEvntQ.emplace(handOverSideControl);
+
 		try
 		{
-			printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
-			printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-				, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+
+			//DepthEvent handsRemoved("HandsRemovedFromSandbox", dpthEvent::evnt_Toggle, scaledCoords, 1);
+			//dpthEvntQ.emplace(handsRemoved);
+			//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
+			//printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+				//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
 			outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
 			trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
 			outBoundPS.Clear();
@@ -199,6 +229,16 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	}
 // Transmit OSC see above currently
 // TODO Create packing loop
+	while (!dpthEvntQ.empty())
+	{
+		DepthEvent tmp = dpthEvntQ.front();
+		dpthEvntQ.pop();
+		if (tmp.getEventName().compare("HandOverSideControl") == 0)// || tmp.getEventName().compare("HandsRemoved"))
+		{
+			_3dCoordinates _3dtmp2 = tmp.getCoordinates();
+			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
+		}
+	}
 
 // Update Knowledge
 	currentMax = vmax;
@@ -226,10 +266,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 		// Reporting
-
-		
-
-
 		SafeRelease(depthFrame);
 
 		
