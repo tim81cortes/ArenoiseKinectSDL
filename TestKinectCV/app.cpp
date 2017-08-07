@@ -55,6 +55,7 @@ void App::Init()
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 		namedWindow("CvOutput2", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput2", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+		flipAndDisplay(updatedSurface, "CvOutput2", 0);
 	}
 }
 void App::flipAndDisplay(Mat& toFlip, const String window, int wait)
@@ -88,146 +89,180 @@ bool App::getSensorPresence()
 }
 void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock)
 {
-	if (true == foundSensor)
+	
+// ProcessInput
+	// Initialise variables
+		// Side control
+	double _2nd_vmin, _2nd_vmax;
+	int _2nd_idx_min[2] = { 0,0 }, _2nd_idx_max[2] = { 0, 0 };
+	Mat _2ndInteractnArea;
+	double scaledX, scaledY, scaledZ;
+	double rectY;
+	Scalar sideControlColor; Rect sideControlRect;
+
+		// Channel 1 main
+	double vmin, vmax;
+	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+	Mat BeforeColouredMat;
+	Mat BeforeInvertedMat;
+	Mat DisplayMat;
+	Mat beforeDisplayMat;
+	int colmap = 4; // See openCV's colormap enumeration.
+
+		// Channel 2 depth filter
+	Mat Mat2Cropped;
+	Mat BeforeColouredMat2;
+	Mat BeforeInvertedMat2;
+	Mat DisplayMat2;
+	uint16 _2ndIntAreaWidth;
+
+	// Aquire depthframe	
+	getFrame();		
+	Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
+	// Reduce size for processing
+				// Channel 1 main
+	medianBlur(depthMatOriginal.clone(), _2ndInteractnArea, 5);
+	
+	// Side control
+	config->applyConfigurationSettingsToMatrix(_2ndInteractnArea, 1);
+
+	// Filter noise 
+		// Side control
+	
+		// main channel
+	for (int j = 0; j < depthMatOriginal.rows; j++)
 	{
-		getFrame();
-		Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
-		Mat _2ndInteractnArea;
-		medianBlur(depthMatOriginal.clone(), _2ndInteractnArea, 5);
-		config->applyConfigurationSettingsToMatrix(_2ndInteractnArea, 1);
-
-		double _2nd_vmin, _2nd_vmax;
-		int _2nd_idx_min[2] = { 0,0 }, _2nd_idx_max[2] = { 0, 0 };
-		minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
-		if (abs(currentSideControlCoords[2] - _2nd_vmax) > 5 )		
+		for (int i = 0; i < depthMatOriginal.cols; i++)
 		{
-			currentSideControlCoords[2] = _2nd_vmax;
-		}
-		// Create a rectangle as tall as the sandbox config and as wide as the side control config
-		double scaledX, scaledY, scaledZ;
-		scaledX =  _2nd_idx_max[1] * 256 / config->cropRect[1].width;
-		scaledY = _2nd_idx_max[0] * 256 / config->cropRect[1].height;  
-		scaledZ = _2nd_vmax * 256 / _2ndInteractnAreaMinReferrence;
-		
-
-		double rectY = currentSideControlCoords[1] *  config->cropRect[0].height / 256;
-
-		Scalar sideControlColor; Rect sideControlRect;
-		if (scaledZ > 35 && scaledZ < 255)
-		{
-			sideControlColor = Scalar(0, scaledX, scaledZ);
-			sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
-			currentSideControlCoords[0] = scaledX;
-			currentSideControlCoords[1] = scaledY;
-			currentSideControlCoords[2] = scaledZ;
-		}
-		else
-		{
-			sideControlColor = Scalar(0, currentSideControlCoords[0], currentSideControlCoords[2]);
-			sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
-		}
-			
-		
-
-		
-		
-		//Rect sideControlRect(0, _2nd_idx_max[0], config->cropRect[1].width, config->cropRect[0].height - _2nd_idx_max[0]);
-		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-		, _2nd_vmin, _2nd_vmax, _2nd_idx_min[1], _2nd_idx_min[0], _2nd_idx_max[1], _2nd_idx_max[0]);*/
-		printf("MaxVal: %5.0f;  MaxX: %3.0f MaxY %3.0f \t", scaledZ, scaledX, scaledY);
-		printf("MaxVal: %5.0f;  MaxX: %d MaxY %d\n", _2nd_vmax,_2nd_idx_max[1], _2nd_idx_max[0]);
-		//printf("Rectx: %5.0f;  %3.0f\n", rectY);
-
-
-		for (int j = 0; j < depthMatOriginal.rows; j++)
-		{
-			for (int i = 0; i < depthMatOriginal.cols; i++)
+			if (depthMatOriginal.at<uint16>(j, i) > 1300)
 			{
-				if (depthMatOriginal.at<uint16>(j, i) > 1300)
-				{
-					depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
+				depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
 
-				}
-				else
+			}
+			else
+			{
+				if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence)
 				{
-					if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence && !updatedSurface.empty())
-					{
-						updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
-					}
+					updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
 				}
 			}
 		}
-		//printf("Pixel val: %d \n", mat.at<uint16>(200,200));
-		Mat matCropped(config->cropRect[0].height, config->cropRect[0].width, CV_16U);
-		Mat Mat2Cropped = updatedSurface.clone();	
+	}
+	config->applyConfigurationSettingsToMatrix(depthMatOriginal, 0);
+	
+	Mat2Cropped = updatedSurface.clone();
+	config->applyConfigurationSettingsToMatrix(Mat2Cropped, 0);
+	// Calculate agregates
+		// Side control area
+	minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
+	scaledX =  _2nd_idx_max[1] * 256 / config->cropRect[1].width;
+	scaledY = _2nd_idx_max[0] * 256 / config->cropRect[1].height;  
+	scaledZ = _2nd_vmax * 256 / _2ndInteractnAreaMinReferrence;
+	rectY = currentSideControlCoords[1] * config->cropRect[0].height / 256;
+		// Channel 1 main
+	minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
+// HandleEvents
+	// Side control area
+	if (scaledZ > 35 && scaledZ < 255)
+	{
+		sideControlColor = Scalar(0, scaledX, scaledZ);
+		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
+		currentSideControlCoords[0] = scaledX;
+		currentSideControlCoords[1] = scaledY;
+		currentSideControlCoords[2] = scaledZ;
+	}
+	else
+	{
+		sideControlColor = Scalar(0, currentSideControlCoords[0], currentSideControlCoords[2]);
+		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
+	}
+		// Channel 1 main
+	// Send OSC when an event is triggered
+	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
+	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
 
-		double vmin, vmax;
-		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+	if (abs(vmax - currentMax) > 50 && vmax < 500)
+	{
+		try
+		{
+			printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
+			printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+				, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+			outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
+			trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
+			outBoundPS.Clear();
+		}
+		catch (Exception e)
+		{
+			printf("Error: %s %s", e.err, e.msg);
+		}
+	}
+// Transmit OSC see above currently
+// TODO Create packing loop
 
-		config->applyConfigurationSettingsToMatrix(depthMatOriginal, 0);
-		
-		minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
-		/*printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-			, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);*/
+// Update Knowledge
+	currentMax = vmax;
 
-		Mat BeforeColouredMat;
-		Mat BeforeInvertedMat;
-		Mat PlottedMat;
-		int colmap = 4;
-		cv::Mat DisplayMat;
+// Render Screen
+
+		// Channel 1 and side control
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		
 		applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
-		bitwise_not(BeforeInvertedMat, DisplayMat);
-		
-		// Second time arround with updating sand surface
-		
-		Mat BeforeColouredMat2;
-		Mat BeforeInvertedMat2;
-		Mat PlottedMat2;
-		
-		config->applyConfigurationSettingsToMatrix(Mat2Cropped, 0);
+		bitwise_not(BeforeInvertedMat, DisplayMat);		
+		_2ndIntAreaWidth = config->cropRect[1].width;
 
-		Mat DisplayMat2;
-		
-		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
-		
-		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
-		//cv::bitwise_not(BeforeInvertedMat2, DisplayMat2);
-			
-		// scale the values to map to the parameter they control
-		uint16 pitchVal = 48 + floor(double(35) / matCropped.cols * idx_max[1]);
-		uint16 lpfVal = 1000 + floor(double(2000) / matCropped.cols * idx_max[0]); 
+		beforeDisplayMat = Mat(DisplayMat.rows, DisplayMat.cols + _2ndIntAreaWidth, CV_8UC3);
 
-		// Send OSC when an event is triggered
-		if (abs(vmax - currentMax) > 50 && vmax < 500) 
-		{
-			try 
-			{
-				printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
-				printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-					, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
-				outBoundPS	<< osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
-				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
-				outBoundPS.Clear();
-			}
-			catch(Exception e)
-			{
-				printf("Error: %s %s", e.err, e.msg);
-			}
-		}
-		
-		currentMax = vmax;
-		uint16 _2ndIntAreaWidth = config->cropRect[1].width;
-		Mat beforeDisplayMat(DisplayMat.rows, DisplayMat.cols + _2ndIntAreaWidth,  CV_8UC3);
-		
-		DisplayMat.copyTo(beforeDisplayMat(Rect(config->cropRect[1].width,0,DisplayMat.cols,DisplayMat.rows)));
-		rectangle(beforeDisplayMat, sideControlRect,sideControlColor,CV_FILLED);
+		DisplayMat.copyTo(beforeDisplayMat(Rect(config->cropRect[1].width, 0, DisplayMat.cols, DisplayMat.rows)));
+		rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 2);
+		// Channel 2 
+		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
+
+		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
+
 		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
-	
+
+
+		// Reporting
+
+		
+
+
 		SafeRelease(depthFrame);
-	}
+
+		
+
+		
+
+		
+
+		
+
+		
+
+		
+
+		
+
+		
+		
+
+
+
+		
+
+		
+
+ 
+
+		
+		
+		
+
+
+	
 }
 
 void App::Shutdown()

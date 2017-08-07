@@ -85,6 +85,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>C:\Projects\Libraries\oscpack_1_1_0;$(OPENCV_DIR)\..\..\include;$(KINECTSDK20_DIR)inc;</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(OPENCV_DIR)\lib;$(KINECTSDK20_DIR)LIB\x64\;C:\Projects\Libraries\oscpack_1_1_0\_build_x64\</AdditionalLibraryDirectories>

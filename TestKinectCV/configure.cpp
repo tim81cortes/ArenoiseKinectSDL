@@ -128,10 +128,6 @@ void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea)
 		{
 			ROI = src(cropRect[whichArea]);
 		}
-		if (whichArea) 
-		{
-			printf("Zero referencing area %d the matrix from value %d", whichArea , boxBottom[whichArea]);
-		}
 
 	subtract((boxBottom[whichArea]), ROI, ROI);
 	src = ROI;

@@ -68,7 +68,7 @@ public:
 private:
 	//pointer to buffer that containes pixels that get pushed to the screen
 	// size of the buffer is SCRWIDTH * SCRHIGHT * sizeof(uint32)
-	double currentSideControlCoords[3] = {0,0,0};
+	double currentSideControlCoords[3] = {0,0,0}; // Knowledge
 	uint32* m_pixelBuffer = nullptr;
 	IKinectSensor* m_sensor = nullptr;
 	IDepthFrameReader* m_depthFrameReader = nullptr;
@@ -79,11 +79,11 @@ private:
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
-	uint16 currentMax;
-	Mat updatedSurface;
+	uint16 currentMax; // Knowledge
+	Mat updatedSurface; 
 	bool initFrameDone = false;
-	uint16 emptyBoxMinReferrence;
-	uint16 _2ndInteractnAreaMinReferrence;
+	uint16 emptyBoxMinReferrence; // Config
+	uint16 _2ndInteractnAreaMinReferrence; // Config
 	std::queue<Mat> framesForComparison;
 	
 };
