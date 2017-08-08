@@ -284,8 +284,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 // Render Screen
 
 		// Channel 1 and side control
-		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		
+	
+		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 		applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
 		bitwise_not(BeforeInvertedMat, DisplayMat);		
 		_2ndIntAreaWidth = config->cropRect[1].width;
@@ -295,14 +297,14 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		DisplayMat.copyTo(beforeDisplayMat(Rect(config->cropRect[1].width, 0, DisplayMat.cols, DisplayMat.rows)));
 		rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
 		
-		flipAndDisplay(beforeDisplayMat, "CvOutput", 2);
+		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 		// Channel 2 
 		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
 
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 
 		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
-		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 2);
+		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
 
 		// Reporting
 		SafeRelease(depthFrame);
