@@ -83,7 +83,9 @@ private:
 	IDepthFrame* depthFrame;
 	Configure* config; 
 	uint16 currentMax; // Knowledge
-	Mat updatedSurface; 
+	Mat previousSurface; // Knowledge
+	Mat currentDifferenceMap; // Knowledge
+	Mat updatedSurface; // Knowledge
 	bool initFrameDone = false;
 	uint16 emptyBoxMinReferrence; // Config
 	uint16 _2ndInteractnAreaMinReferrence; // Config

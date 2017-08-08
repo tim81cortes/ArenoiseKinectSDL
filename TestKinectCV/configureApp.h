@@ -3,6 +3,7 @@
 #include<opencv2/imgproc/imgproc.hpp>
 #include <vector>
 #include <iostream>
+#include <string>
 
 using namespace cv;
 
@@ -35,6 +36,7 @@ public:
 	unsigned short getZeroReference(Mat depthFrame);
 	int getZeroReferenceFromFile(String depthFrameName);
 	int getZeroReferenceFromMatrix(Mat depthFrame);
+	void saveImage(Mat& src, int count);
 	
 };
 

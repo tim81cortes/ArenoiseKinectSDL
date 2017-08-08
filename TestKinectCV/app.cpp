@@ -55,7 +55,9 @@ void App::Init()
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 		namedWindow("CvOutput2", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput2", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-		flipAndDisplay(updatedSurface, "CvOutput2", 0);
+		namedWindow("DiffMapOutput", CV_WINDOW_NORMAL);
+		cvSetWindowProperty("DiffMapOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+		
 	}
 }
 void App::flipAndDisplay(Mat& toFlip, const String window, int wait)
@@ -108,6 +110,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat DisplayMat;
 	Mat beforeDisplayMat;
 	int colmap = 4; // See openCV's colormap enumeration.
+	int count = 0;
 
 		// Channel 2 depth filter
 	Mat Mat2Cropped;
@@ -136,6 +139,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			if (depthMatOriginal.at<uint16>(j, i) > 1300)
 			{
+				//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
 				depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
 
 			}
@@ -161,6 +165,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	rectY = currentSideControlCoords[1] * config->cropRect[0].height / 256;
 		// Channel 1 main
 	minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
+	//printf("vmin: %3.0f, vmax: %3.0f\n", vmin, vmax );
 // HandleEvents
 	// Side control area
 	if (scaledZ > 35 && scaledZ < 100)
@@ -192,40 +197,17 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 	
 
-	if (abs(vmax - currentMax) > 50 && vmax < 500)
+	if ((currentMax - vmax) > 100 && vmax < 500)
 	{
-		scaledX = idx_max[1] * 256 / config->cropRect[0].width;
-		scaledY = idx_max[0] * 256 / config->cropRect[0].height;
-		scaledZ = vmax * 256 / emptyBoxMinReferrence;
 		_3dCoordinates scaledCoords;
-		scaledCoords.values[0] = scaledX;
-		scaledCoords.values[1] = scaledY;
-		scaledCoords.values[2] = scaledZ;
-
-		sideControlColor = Scalar(0, scaledX, scaledZ);
-		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
-		currentSideControlCoords[0] = scaledX;
-		currentSideControlCoords[1] = scaledY;
-		currentSideControlCoords[2] = scaledZ;
+		scaledCoords.values[0] = idx_max[1] * 256 / config->cropRect[0].width;
+		scaledCoords.values[1] = idx_max[0] * 256 / config->cropRect[0].height;
+		scaledCoords.values[2] = vmax * 256 / emptyBoxMinReferrence;
+		
 		DepthEvent handOverSideControl("RemovedHandsFromSandBoxArea", dpthEvent::evnt_Toggle, scaledCoords, 1);
 		dpthEvntQ.emplace(handOverSideControl);
 
-		try
-		{
-
-			//DepthEvent handsRemoved("HandsRemovedFromSandbox", dpthEvent::evnt_Toggle, scaledCoords, 1);
-			//dpthEvntQ.emplace(handsRemoved);
-			//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
-			//printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-				//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
-			outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
-			trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
-			outBoundPS.Clear();
-		}
-		catch (Exception e)
-		{
-			printf("Error: %s %s", e.err, e.msg);
-		}
+		
 	}
 // Transmit OSC see above currently
 // TODO Create packing loop
@@ -233,15 +215,71 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	{
 		DepthEvent tmp = dpthEvntQ.front();
 		dpthEvntQ.pop();
-		if (tmp.getEventName().compare("HandOverSideControl") == 0)// || tmp.getEventName().compare("HandsRemoved"))
+		if (tmp.getEventName().compare("HandOverSideControl") == 0 || 0 == tmp.getEventName().compare("RemovedHandsFromSandBoxArea"))
 		{
 			_3dCoordinates _3dtmp2 = tmp.getCoordinates();
 			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
+		}
+		if (0 == tmp.getEventName().compare("RemovedHandsFromSandBoxArea")) 
+		{
+			try
+			{
+				Mat differenceMap(depthMatOriginal.size(), CV_16U);
+				DepthEvent dEvnt("DifferenceMapCreated", dpthEvent::evnt_persistent);
+				if (!previousSurface.empty()) 
+				{
+					printf("previous surface now created.");
+					subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
+				}
+
+				previousSurface = depthMatOriginal.clone();
+				//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
+				//printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
+				//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
+				outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
+				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
+				outBoundPS.Clear();
+				Mat tmp;
+				//bitwise_not(differenceMap,tmp);
+				config->saveImage(differenceMap, count);
+				for (int j = 0; j < differenceMap.rows; j++)
+				{
+					for (int i = 0; i < differenceMap.cols; i++)
+					{
+						if (differenceMap.at<uint16>(j, i) > 255)
+						{
+							//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
+							differenceMap.at<uint16>(j, i) = 0;
+						}
+						else if (differenceMap.at<uint16>(j, i) < 10)
+						{
+							differenceMap.at<uint16>(j, i) = 0;
+						}
+						else 
+						{
+							differenceMap.at<uint16>(j, i) = 65532;
+						}
+					}
+				}
+				differenceMap.convertTo(currentDifferenceMap, CV_8UC3);
+				//threshold(differenceMap, currentDifferenceMap, cv::THRESH_TOZERO, 80, CV_8UC3);
+				
+				
+				count++;
+
+
+			}
+			catch (Exception e)
+			{
+				printf("Error: %s %s", e.err, e.msg);
+			}
+			
 		}
 	}
 
 // Update Knowledge
 	currentMax = vmax;
+	
 
 // Render Screen
 
@@ -256,6 +294,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		DisplayMat.copyTo(beforeDisplayMat(Rect(config->cropRect[1].width, 0, DisplayMat.cols, DisplayMat.rows)));
 		rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
+		
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 2);
 		// Channel 2 
 		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
@@ -263,7 +302,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 
 		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
-
+		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 2);
 
 		// Reporting
 		SafeRelease(depthFrame);

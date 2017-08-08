@@ -196,5 +196,14 @@ unsigned short Configure::getZeroReference(Mat initDepthFrame) {
 	return maxVal;
 }
 
+void Configure::saveImage(Mat& src, int count) {
+	Mat img;
+	std::string filename = "SandboxDifferenceMap" + std::to_string(count) + ".xml";
+	FileStorage file(filename.c_str(), FileStorage::WRITE);
+
+	file << "SandboxDifferenceMap" << src;
+	file.release();
+
+}
 
 
