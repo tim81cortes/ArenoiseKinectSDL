@@ -7,6 +7,7 @@
 
 // some often used STL Header Files
 #include <iostream>
+#include <vector>
 #include <queue>
 #include <memory>
 #include <Kinect.h>
@@ -65,6 +66,9 @@ public:
 	void flipAndDisplay(Mat & toFlip, const String window, int wait);
 	bool getFrame();
 	bool getSensorPresence();
+	void drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale = 0.2);
+	double getOrientation(const std::vector<Point> &pts, Mat &img);
+
 	//osc::OutboundPacketStream p1;
 
 private:
@@ -86,9 +90,13 @@ private:
 	Mat previousSurface; // Knowledge
 	Mat currentDifferenceMap; // Knowledge
 	Mat updatedSurface; // Knowledge
+	std::vector<Vec4i> hierarchy;
+	std::vector<std::vector<Point> > contours;
+
 	bool initFrameDone = false;
 	uint16 emptyBoxMinReferrence; // Config
 	uint16 _2ndInteractnAreaMinReferrence; // Config
 	std::queue<Mat> framesForComparison;
+
 	
 };

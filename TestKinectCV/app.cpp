@@ -111,6 +111,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat beforeDisplayMat;
 	int colmap = 4; // See openCV's colormap enumeration.
 	int count = 0;
+	Mat bw;
+	Mat multi;
+	Mat grey;
+
 
 		// Channel 2 depth filter
 	Mat Mat2Cropped;
@@ -222,9 +226,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		}
 		if (0 == tmp.getEventName().compare("RemovedHandsFromSandBoxArea")) 
 		{
+			Mat differenceMap(depthMatOriginal.size(), CV_16U);
 			try
 			{
-				Mat differenceMap(depthMatOriginal.size(), CV_16U);
+				
 				DepthEvent dEvnt("DifferenceMapCreated", dpthEvent::evnt_persistent);
 				if (!previousSurface.empty()) 
 				{
@@ -249,30 +254,36 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 						if (differenceMap.at<uint16>(j, i) > 255)
 						{
 							//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-							differenceMap.at<uint16>(j, i) = 0;
+							differenceMap.at<uint16>(j, i) = 65532;
 						}
 						else if (differenceMap.at<uint16>(j, i) < 10)
 						{
-							differenceMap.at<uint16>(j, i) = 0;
+							differenceMap.at<uint16>(j, i) = 65532;
 						}
 						else 
 						{
-							differenceMap.at<uint16>(j, i) = 65532;
+							differenceMap.at<uint16>(j, i) = 0;
 						}
 					}
 				}
-				differenceMap.convertTo(currentDifferenceMap, CV_8UC3);
-				//threshold(differenceMap, currentDifferenceMap, cv::THRESH_TOZERO, 80, CV_8UC3);
-				
-				
-				count++;
-
-
 			}
 			catch (Exception e)
 			{
 				printf("Error: %s %s", e.err, e.msg);
 			}
+				differenceMap.convertTo(currentDifferenceMap, CV_8U);
+				
+							
+				cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
+				cvtColor(multi, grey, COLOR_BGR2GRAY);
+				threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+				
+				findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+
+
+
+
+
 			
 		}
 	}
@@ -287,9 +298,26 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		
 	
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+
 		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
-		applyColorMap(BeforeColouredMat, BeforeInvertedMat, colmap);
-		bitwise_not(BeforeInvertedMat, DisplayMat);		
+
+		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
+		for (size_t i = 0; i < contours.size(); ++i)
+		{
+			// Calculate the area of each contour
+			double area = contourArea(contours[i]);
+			// Ignore contours that are too small or too large
+			if (area < 1e2 || 1e5 < area) continue;
+
+			// Draw each contour only for visualisation purposes
+			drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 0, 255), 2, 8, hierarchy, 0);
+			// Find the orientation of each shape
+			config->saveImage(bw, 2);
+			getOrientation(contours[i], DisplayMat);
+
+		}
+
+		//bitwise_not(BeforeInvertedMat, DisplayMat);		
 		_2ndIntAreaWidth = config->cropRect[1].width;
 
 		beforeDisplayMat = Mat(DisplayMat.rows, DisplayMat.cols + _2ndIntAreaWidth, CV_8UC3);
@@ -303,44 +331,88 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 
-		flipAndDisplay(DisplayMat2, "CvOutput2", 2);
-		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+		flipAndDisplay(DisplayMat2, "CvOutput2", 1);
+
+		if (!bw.empty()) 
+		{
+			flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+		}
+		
 
 		// Reporting
 		SafeRelease(depthFrame);
-
-		
-
-		
-
-		
-
-		
-
-		
-
-		
-
-		
-
-		
-		
-
-
-
-		
-
-		
-
- 
-
-		
-		
-		
-
-
-	
 }
+
+
+void App::drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale)
+{
+	double angle;
+	double hypotenuse;
+	angle = atan2((double)p.y - q.y, (double)p.x - q.x); // angle in radians
+	hypotenuse = sqrt((double)(p.y - q.y) * (p.y - q.y) + (p.x - q.x) * (p.x - q.x));
+	//    double degrees = angle * 180 / CV_PI; // convert radians to degrees (0-180 range)
+	//    cout << "Degrees: " << abs(degrees - 180) << endl; // angle in 0-360 degrees range
+
+	// Here we lengthen the arrow by a factor of scale
+	q.x = (int)(p.x - scale * hypotenuse * cos(angle));
+	q.y = (int)(p.y - scale * hypotenuse * sin(angle));
+	line(img, p, q, colour, 1, CV_AA);
+
+	// create the arrow hooks
+	p.x = (int)(q.x + 9 * cos(angle + CV_PI / 4));
+	p.y = (int)(q.y + 9 * sin(angle + CV_PI / 4));
+	line(img, p, q, colour, 1, CV_AA);
+
+	p.x = (int)(q.x + 9 * cos(angle - CV_PI / 4));
+	p.y = (int)(q.y + 9 * sin(angle - CV_PI / 4));
+	line(img, p, q, colour, 1, CV_AA);
+}
+
+double App::getOrientation(const std::vector<Point> &pts, Mat &img)
+{
+	//Construct a buffer used by the pca analysis
+	int sz = static_cast<int>(pts.size());
+	Mat data_pts = Mat(sz, 2, CV_64FC1);
+	for (int i = 0; i < data_pts.rows; ++i)
+	{
+		data_pts.at<double>(i, 0) = pts[i].x;
+		data_pts.at<double>(i, 1) = pts[i].y;
+	}
+
+	//Perform PCA analysis
+	PCA pca_analysis(data_pts, Mat(), CV_PCA_DATA_AS_ROW);
+
+	//Store the center of the object
+	Point cntr = Point(static_cast<int>(pca_analysis.mean.at<double>(0, 0)),
+		static_cast<int>(pca_analysis.mean.at<double>(0, 1)));
+
+	//Store the eigenvalues and eigenvectors
+	std::vector<Point2d> eigen_vecs(2);
+	std::vector<double> eigen_val(2);
+	for (int i = 0; i < 2; ++i)
+	{
+		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0),
+			pca_analysis.eigenvectors.at<double>(i, 1));
+
+		eigen_val[i] = pca_analysis.eigenvalues.at<double>(0, i);
+	}
+
+	// Draw the principal components
+	circle(img, cntr, 3, Scalar(255, 0, 255), 2);
+	Point p1 = cntr + 0.02 * Point(static_cast<int>(eigen_vecs[0].x * eigen_val[0]), static_cast<int>(eigen_vecs[0].y * eigen_val[0]));
+	Point p2 = cntr - 0.02 * Point(static_cast<int>(eigen_vecs[1].x * eigen_val[1]), static_cast<int>(eigen_vecs[1].y * eigen_val[1]));
+	drawAxis(img, cntr, p1, Scalar(0, 255, 0), 1);
+	drawAxis(img, cntr, p2, Scalar(255, 255, 0), 5);
+
+	double angle = atan2(eigen_vecs[0].y, eigen_vecs[0].x); // orientation in radians
+
+	return angle;
+
+}
+
+
+
+
 
 void App::Shutdown()
 {
