@@ -57,6 +57,7 @@ void App::Init()
 		cvSetWindowProperty("CvOutput2", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 		namedWindow("DiffMapOutput", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("DiffMapOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+		cvDestroyWindow("Choose interaction area then highlight dead pixels.");
 		
 	}
 }
@@ -122,6 +123,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat BeforeInvertedMat2;
 	Mat DisplayMat2;
 	uint16 _2ndIntAreaWidth;
+	_3dCoordinates scaledCoords;
 
 	// Aquire depthframe	
 	getFrame();		
@@ -163,33 +165,29 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	// Calculate agregates
 		// Side control area
 	minMaxIdx(_2ndInteractnArea, &_2nd_vmin, &_2nd_vmax, _2nd_idx_min, _2nd_idx_max);
-	scaledX =  _2nd_idx_max[1] * 256 / config->cropRect[1].width;
-	scaledY = _2nd_idx_max[0] * 256 / config->cropRect[1].height;  
-	scaledZ = _2nd_vmax * 256 / _2ndInteractnAreaMinReferrence;
-	rectY = currentSideControlCoords[1] * config->cropRect[0].height / 256;
+	scaledCoords.values[0] =  _2nd_idx_max[1] * 256 / config->cropRect[1].width;
+	scaledCoords.values[1] = _2nd_idx_max[0] * 256 / config->cropRect[1].height;
+	scaledCoords.values[2] = _2nd_vmax * 256 / _2ndInteractnAreaMinReferrence;
+	
 		// Channel 1 main
 	minMaxIdx(depthMatOriginal, &vmin, &vmax, idx_min, idx_max);
 	//printf("vmin: %3.0f, vmax: %3.0f\n", vmin, vmax );
 // HandleEvents
 	// Side control area
-	if (scaledZ > 35 && scaledZ < 100)
+	if (scaledCoords.values[2] > 35 && scaledCoords.values[2] < 100)
 	{	
-		_3dCoordinates scaledCoords;
-		scaledCoords.values[0] = scaledX;
-		scaledCoords.values[1] = scaledY;
-		scaledCoords.values[2] = scaledZ;
-		
-		
-		sideControlColor = Scalar(0, scaledX, scaledZ);
+		rectY = scaledCoords.values[1] * config->cropRect[0].height / 256;
+		sideControlColor = Scalar(0, scaledCoords.values[0], scaledCoords.values[2]);
 		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
-		currentSideControlCoords[0] = scaledX;
-		currentSideControlCoords[1] = scaledY;
-		currentSideControlCoords[2] = scaledZ;
+		currentSideControlCoords[0] = scaledCoords.values[0];
+		currentSideControlCoords[1] = scaledCoords.values[1];
+		currentSideControlCoords[2] = scaledCoords.values[2];
 		DepthEvent handOverSideControl("HandOverSideControl", dpthEvent::evnt_Toggle, scaledCoords, 1);
 		dpthEvntQ.emplace(handOverSideControl);
 	}
 	else
-	{
+	{	
+		rectY = currentSideControlCoords[1] * config->cropRect[0].height / 256;
 		//DepthEvent endToggle("HandOverSideControl", dpthEvent::evnt_End);
 		sideControlColor = Scalar(0, currentSideControlCoords[0], currentSideControlCoords[2]);
 		sideControlRect = Rect(0, rectY, config->cropRect[1].width, config->cropRect[0].height - rectY + 1);
@@ -210,8 +208,61 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		
 		DepthEvent handOverSideControl("RemovedHandsFromSandBoxArea", dpthEvent::evnt_Toggle, scaledCoords, 1);
 		dpthEvntQ.emplace(handOverSideControl);
+		Mat differenceMap(depthMatOriginal.size(), CV_16U);
+		if (!previousSurface.empty())
+		{
+			// create difference map
+			subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
+		}
+		previousSurface = depthMatOriginal.clone();
+		// Try simple thresholding
+		Mat tmp;
+		for (int j = 0; j < differenceMap.rows; j++)
+		{
+			for (int i = 0; i < differenceMap.cols; i++)
+			{
+				if (differenceMap.at<uint16>(j, i) > 255)
+				{
+					//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
+					differenceMap.at<uint16>(j, i) = 65532;
+				}
+				else if (differenceMap.at<uint16>(j, i) < 10)
+				{
+					differenceMap.at<uint16>(j, i) = 65532;
+				}
+				else
+				{
+					differenceMap.at<uint16>(j, i) = 0;
+				}
+			}
+		}
 
+		differenceMap.convertTo(currentDifferenceMap, CV_8U);
+		cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
+		cvtColor(multi, grey, COLOR_BGR2GRAY);
+		threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+		findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 		
+		for (size_t i = 0; i < contours.size(); ++i)
+		{
+			// Calculate the area of each contour
+			double area = contourArea(contours[i]);
+			// Ignore contours that are too small or too large
+			if (area < 1e2 || 1e5 < area) 
+			{
+				contours.erase(contours.begin() + i);
+				continue;
+			}
+			else
+			{
+			// Create event and add it to the event queue
+			DepthEvent handOverSideControl("DifferenceShapeFound", dpthEvent::evnt_Toggle, scaledCoords, 1);
+
+
+			}
+		}
+
+
 	}
 // Transmit OSC see above currently
 // TODO Create packing loop
@@ -226,65 +277,20 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		}
 		if (0 == tmp.getEventName().compare("RemovedHandsFromSandBoxArea")) 
 		{
-			Mat differenceMap(depthMatOriginal.size(), CV_16U);
 			try
 			{
-				
-				DepthEvent dEvnt("DifferenceMapCreated", dpthEvent::evnt_persistent);
-				if (!previousSurface.empty()) 
-				{
-					printf("previous surface now created.");
-					subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
-				}
-
-				previousSurface = depthMatOriginal.clone();
 				//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
 				//printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
 				//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
 				outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
 				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
 				outBoundPS.Clear();
-				Mat tmp;
-				//bitwise_not(differenceMap,tmp);
-				config->saveImage(differenceMap, count);
-				for (int j = 0; j < differenceMap.rows; j++)
-				{
-					for (int i = 0; i < differenceMap.cols; i++)
-					{
-						if (differenceMap.at<uint16>(j, i) > 255)
-						{
-							//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-							differenceMap.at<uint16>(j, i) = 65532;
-						}
-						else if (differenceMap.at<uint16>(j, i) < 10)
-						{
-							differenceMap.at<uint16>(j, i) = 65532;
-						}
-						else 
-						{
-							differenceMap.at<uint16>(j, i) = 0;
-						}
-					}
-				}
 			}
 			catch (Exception e)
 			{
 				printf("Error: %s %s", e.err, e.msg);
 			}
-				differenceMap.convertTo(currentDifferenceMap, CV_8U);
-				
-							
-				cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
-				cvtColor(multi, grey, COLOR_BGR2GRAY);
-				threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-				
-				findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
-
-
-
-
-
-			
+		
 		}
 	}
 
@@ -302,19 +308,28 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 
 		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
+
 		for (size_t i = 0; i < contours.size(); ++i)
 		{
+			orientationVector objOrient;
 			// Calculate the area of each contour
 			double area = contourArea(contours[i]);
 			// Ignore contours that are too small or too large
-			if (area < 1e2 || 1e5 < area) continue;
-
+			if (area < 1e2 || 1e5 < area)
+			{
+				continue;
+			}
 			// Draw each contour only for visualisation purposes
-			drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 0, 255), 2, 8, hierarchy, 0);
+			drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
 			// Find the orientation of each shape
-			config->saveImage(bw, 2);
-			getOrientation(contours[i], DisplayMat);
-
+			getOrientation(contours[i], DisplayMat, objOrient);
+			//objectOrientations.emplace(objOrient);
+			printf("objOrient centr x: %d y: %d", objOrient.center[0], objOrient.center[1]);
+			Point center(objOrient.center[0], objOrient.center[1]);
+			Point front(objOrient.front[0], objOrient.front[1]);
+			Point side(objOrient.side[0], objOrient.side[1]);
+			drawAxis(DisplayMat, center, front, Scalar(0, 0, 255), 1);
+			drawAxis(DisplayMat, center, side, Scalar(255, 255, 0), 5);
 		}
 
 		//bitwise_not(BeforeInvertedMat, DisplayMat);		
@@ -368,7 +383,7 @@ void App::drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale)
 	line(img, p, q, colour, 1, CV_AA);
 }
 
-double App::getOrientation(const std::vector<Point> &pts, Mat &img)
+double App::getOrientation(const std::vector<Point> &pts, Mat &img, orientationVector &orVect)
 {
 	//Construct a buffer used by the pca analysis
 	int sz = static_cast<int>(pts.size());
@@ -401,15 +416,22 @@ double App::getOrientation(const std::vector<Point> &pts, Mat &img)
 	circle(img, cntr, 3, Scalar(255, 0, 255), 2);
 	Point p1 = cntr + 0.02 * Point(static_cast<int>(eigen_vecs[0].x * eigen_val[0]), static_cast<int>(eigen_vecs[0].y * eigen_val[0]));
 	Point p2 = cntr - 0.02 * Point(static_cast<int>(eigen_vecs[1].x * eigen_val[1]), static_cast<int>(eigen_vecs[1].y * eigen_val[1]));
-	drawAxis(img, cntr, p1, Scalar(0, 255, 0), 1);
-	drawAxis(img, cntr, p2, Scalar(255, 255, 0), 5);
+	orVect.center[0] = cntr.x;
+	orVect.center[1] = cntr.y;
+	orVect.front[0] = p1.x;
+	orVect.front[1] = p1.y;
+	orVect.side[0] = p2.x;
+	orVect.side[1] = p2.y;
 
 	double angle = atan2(eigen_vecs[0].y, eigen_vecs[0].x); // orientation in radians
 
 	return angle;
 
 }
-
+double App::euclideanDist(Point& p, Point& q) {
+	Point diff = p - q;
+	return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
+}
 
 
 
@@ -422,6 +444,8 @@ void App::Shutdown()
 	SafeRelease(m_sensor);
 	SafeRelease(m_depthFrameReader);
 	cvDestroyWindow("CvOutput");
+	cvDestroyWindow("CvOutput2");
+	cvDestroyWindow("DiffMapOutput");
 	free(depthBufferCurrentDepthFrame);
 	free(depthBufferUpdatedSurface);
 }

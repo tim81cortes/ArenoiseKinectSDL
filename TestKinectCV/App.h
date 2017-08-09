@@ -67,7 +67,8 @@ public:
 	bool getFrame();
 	bool getSensorPresence();
 	void drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale = 0.2);
-	double getOrientation(const std::vector<Point> &pts, Mat &img);
+	double getOrientation(const std::vector<Point> &pts, Mat &img, orientationVector &orVect);
+	double euclideanDist(Point& p, Point& q);
 
 	//osc::OutboundPacketStream p1;
 
@@ -92,7 +93,7 @@ private:
 	Mat updatedSurface; // Knowledge
 	std::vector<Vec4i> hierarchy;
 	std::vector<std::vector<Point> > contours;
-
+	std::vector<orientationVector> objectOrientations;
 	bool initFrameDone = false;
 	uint16 emptyBoxMinReferrence; // Config
 	uint16 _2ndInteractnAreaMinReferrence; // Config
