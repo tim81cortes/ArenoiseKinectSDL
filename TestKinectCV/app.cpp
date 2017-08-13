@@ -60,7 +60,7 @@ void App::Init()
 		config->applyConfigurationSettingsToMatrix(mat2, 0);
 		mat2 = mat2(config->cropRect[2]);
 		minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
-		printf("Initial max %d\n", vmax);
+		printf("Initial max %3.0f\n", vmax);
 		initialMax = vmax;
 		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 		
@@ -137,6 +137,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	
 	// Channel 2 depth filter
 	Mat Mat2Cropped;
+	Mat NormMat2;
 	Mat BeforeColouredMat2;
 	Mat BeforeInvertedMat2;
 	Mat DisplayMat2;
@@ -160,27 +161,29 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// Side control
 	
 		// main channel
-	for (int j = 0; j < depthMatOriginal.rows; j++)
-	{
-		for (int i = 0; i < depthMatOriginal.cols; i++)
-		{
-			if (depthMatOriginal.at<uint16>(j, i) > 1300)
-			{
-				//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-				//depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
-			}
-			else
-			{
-				if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence)
-				{
-					updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
-				}
-			}
-		}
-	}
+	//for (int j = 0; j < depthMatOriginal.rows; j++)
+	//{
+	//	for (int i = 0; i < depthMatOriginal.cols; i++)
+	//	{
+	//		if (depthMatOriginal.at<uint16>(j, i) > 1300)
+	//		{
+	//			//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
+	//			//depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
+	//		}
+	//		else
+	//		{
+	//			if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence)
+	//			{
+	//				updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
+	//			}
+	//		}
+	//	}
+	//}
+	
+	Mat2Cropped = depthMatOriginal.clone();
+
 	config->applyConfigurationSettingsToMatrix(depthMatOriginal, 0);
 	
-	Mat2Cropped = updatedSurface.clone();
 	config->applyConfigurationSettingsToMatrix(Mat2Cropped, 0);
 	// Calculate agregates
 		// Side control area
@@ -193,6 +196,9 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat aggragateMat = Mat(depthMatOriginal.clone(), config->cropRect[2]);
 	minMaxIdx(aggragateMat, &vmin, &vmax, idx_min, idx_max);
 	//printf("Max at front of pit: %3.0f \n", vmax );
+	
+		
+
 // HandleEvents
 	// Side control area
 	if (scaledCoords.values[2] > 35 && scaledCoords.values[2] < 100)
@@ -359,19 +365,59 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 // Render Screen
 		// Channel 2 
 		createMask(depthMatOriginal);
-		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
+		//medianBlur(Mat2Cropped, Mat2Cropped, 5);
+		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, NORM_L2, CV_16UC1);// CV_L1, CV_16UC1);
+		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, CV_L1, CV_16UC1);
+		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3, 0.25);
+		int numBins = 128;
 		
+		bool uniform = true; bool accumulate = false;
+		Mat depthHist;
+		float range[] = { float(initialMax) * 0.25, 184 };
+		const float* histRange = { range };
+		calcHist(&BeforeColouredMat2, 1, 0, Mat(), depthHist, 1, &numBins, &histRange, uniform, accumulate);
+		
+		int hist_w = 512; int hist_h = 400;
+		int bin_w = cvRound((double)hist_w / numBins);
+
+		Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0, 0, 0));
+
+		/// Normalize the result to [ 0, histImage.rows ]
+		normalize(depthHist, depthHist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+		
+		double hist_vmin, hist_vmax;
+		int hist_idx_min[2] = { 255,255 }, hist_idx_max[2] = { 255, 255 };
+
+		minMaxIdx(depthHist, &hist_vmin, &hist_vmax, hist_idx_min, hist_idx_max);
+		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
+		//TODO if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
+
+		for (int i = 1; i < numBins; i++)
+		{
+
+
+			line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(depthHist.at<float>(i - 1))),
+				Point(bin_w*(i), hist_h - cvRound(depthHist.at<float>(i))),
+				Scalar(255, 0, 0), 2, 8, 0);
+
+
+		}
+
+
+		line(histImage, Point(initialMax * 0.25, 0), Point(initialMax * 0.25, hist_h - 100), Scalar(0, 255, 255));
+		line(histImage, Point(hist_idx_max[0] * 4, 0), Point(hist_idx_max[0] * 4, hist_h - 100), Scalar(0, 255, 0));
+
 		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
 		int dilation_size = 24; 
+		
+		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
 		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
 			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
 			cv::Point(dilation_size, dilation_size));
-
-
 		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
-		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
-		flipAndDisplay(fgMaskMOG2, "CvOutput2", 1);
+
+		flipAndDisplay(histImage, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
