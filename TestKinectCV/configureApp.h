@@ -4,6 +4,11 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#define _CRTDBG_MAP_ALLOC  
+#include <stdlib.h>  
+#include <crtdbg.h>  
+
+
 
 using namespace cv;
 
@@ -25,7 +30,7 @@ private:
 	
 
 public:
-	Rect cropRect[2];
+	Rect cropRect[3];
 	Configure(Rect crpRct, Point pnt1, Point pnt2);
 	//~Configure();
 	void onMouse(int event, int x, int y);
@@ -34,9 +39,10 @@ public:
 	void applyConfigurationSettingsToMatrix(Mat& src, int whichArea);
 	void checkBoundary(Mat& src);
 	unsigned short getZeroReference(Mat depthFrame);
-	int getZeroReferenceFromFile(String depthFrameName);
-	int getZeroReferenceFromMatrix(Mat depthFrame);
+	unsigned short getZeroReferenceFromFile(String depthFrameName);
+	unsigned short getZeroReferenceFromMatrix(Mat depthFrame);
 	void saveImage(Mat& src, int count);
+	unsigned short calculateTotalDifferenceFromMin(Mat& initDepthFrame);
 	
 };
 

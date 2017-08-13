@@ -47,44 +47,50 @@ void Configure::onMouse(int event, int x, int y) {
 	if (justReleased && CV_EVENT_LBUTTONUP == event) 
 	{
 		// 
-		Rect tempRect;
+		Rect tmpRect;
 		if (P1.x>P2.x) 
 		{
-			tempRect.x = P2.x;
-			tempRect.width = P1.x - P2.x;
+			tmpRect.x = P2.x;
+			tmpRect.width = P1.x - P2.x;
 		}
 		else 
 		{
-			tempRect.x = P1.x;
-			tempRect.width = P2.x - P1.x;
+			tmpRect.x = P1.x;
+			tmpRect.width = P2.x - P1.x;
 		}
 
 		if (P1.y>P2.y) 
 		{
-			tempRect.y = P2.y;
-			tempRect.height = P1.y - P2.y;
+			tmpRect.y = P2.y;
+			tmpRect.height = P1.y - P2.y;
 		}
 		else 
 		{
-			tempRect.y = P1.y;
-			tempRect.height = P2.y - P1.y;
+			tmpRect.y = P1.y;
+			tmpRect.height = P2.y - P1.y;
 		}
 		if (!displayAreaSet)
 		{
-			cropRect[0] = tempRect;
+			cropRect[0] = tmpRect;
 			printf("Interaction area 1 set as X: %d Y: %d W: %d H: %d \n", cropRect[0].x, cropRect[0].y, cropRect[0].width, cropRect[0].height);
-			displayAreaSet = true;
+			
+			int relativeSize = round(double(tmpRect.height)/10);
+			Rect tmpRect2(0,  tmpRect.height - relativeSize, tmpRect.width, relativeSize);
+			cropRect[2] = tmpRect2;
+			printf("Interaction area 1 set as X: %d Y: %d W: %d H: %d \n", 0, tmpRect.height - relativeSize, tmpRect.width, relativeSize);
+ 			displayAreaSet = true;
+
 		}
 		else if(displayAreaSet && !sideOfBoxAreaSet)
 		{
-			cropRect[1] = tempRect;
+			cropRect[1] = tmpRect;
 			printf("Interaction area 2 set as X: %d Y: %d W: %d H: %d \n", cropRect[1].x, cropRect[1].y, cropRect[1].width, cropRect[1].height);
 			sideOfBoxAreaSet = true;
 		}
 		else
 		{
-			rectangles.push_back(tempRect);
-			printf("Rectangle added for blurring. X: %d Y: %d W: %d H: %d \n", tempRect.x, tempRect.y, tempRect.width, tempRect.height);
+			rectangles.push_back(tmpRect);
+			printf("Rectangle added for blurring. X: %d Y: %d W: %d H: %d \n", tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
 		}
 	}
 }
@@ -126,18 +132,23 @@ void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea)
 		{
 			ROI = src(cropRect[whichArea]);
 		}
+		unsigned char boxBottomAdj = 0;
+		if (0 == whichArea)
+		{
+			boxBottomAdj = 30;
+		}
 
-	subtract((boxBottom[whichArea]), ROI, ROI);
+	subtract((boxBottom[whichArea] + boxBottomAdj), ROI, ROI);
 	src = ROI;
 }
 
 
 
-int Configure::getZeroReferenceFromFile(String depthFrameName) {
+unsigned short Configure::getZeroReferenceFromFile(String depthFrameName) {
 	FileStorage fs;
 	Mat emptyBoxFromFile;
 	String qualifiedDepthFrameName = "ConfigurationFiles\\" + depthFrameName;
-
+	boxBottom[0] = 1150;
 	try
 	{
 		FileStorage file(qualifiedDepthFrameName, FileStorage::READ);
@@ -151,9 +162,10 @@ int Configure::getZeroReferenceFromFile(String depthFrameName) {
 	
 	fs.release();
 	boxBottom[0] = getZeroReference(emptyBoxFromFile);
+	return boxBottom[0];
 }
 
-int Configure::getZeroReferenceFromMatrix(Mat src) {
+unsigned short Configure::getZeroReferenceFromMatrix(Mat src) {
 	Mat ROI;
 
 	if (cropRect[1].width>0 && cropRect[1].height>0) {
@@ -194,6 +206,16 @@ unsigned short Configure::getZeroReference(Mat initDepthFrame) {
 		, vmax);
 	maxVal = unsigned short(vmax);
 	return maxVal;
+}
+
+unsigned short Configure::calculateTotalDifferenceFromMin(Mat& depthFrame) {
+	
+	if (!depthFrame.empty())
+	{
+		return unsigned short(sum(depthFrame)[0]);
+	}
+	
+	return 0;
 }
 
 void Configure::saveImage(Mat& src, int count) {
