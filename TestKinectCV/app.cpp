@@ -37,7 +37,7 @@ void App::Init()
 		
 		depthBufferCurrentDepthFrame = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
-		pMOG2 = cv::createBackgroundSubtractorMOG2();
+		
 
 
 		while(!getFrame());
@@ -143,6 +143,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat DisplayMat2;
 	uint16 _2ndIntAreaWidth;
 	_3dCoordinates scaledCoords;
+	bool handsRaised = false;
 
 
 
@@ -197,6 +198,28 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	minMaxIdx(aggragateMat, &vmin, &vmax, idx_min, idx_max);
 	//printf("Max at front of pit: %3.0f \n", vmax );
 	
+		// Channel 2 
+	Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3, 0.25);
+	int numBins = 128;
+
+	bool uniform = true; bool accumulate = false;
+	Mat depthHist;
+	float range[] = { float(initialMax) * 0.25, 184 };
+	const float* histRange = { range };
+	calcHist(&BeforeColouredMat2, 1, 0, Mat(), depthHist, 1, &numBins, &histRange, uniform, accumulate);
+
+	int hist_w = 512; int hist_h = 400;
+	int bin_w = cvRound((double)hist_w / numBins);
+
+	Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0, 0, 0));
+
+	/// Normalize the result to [ 0, histImage.rows ]
+	normalize(depthHist, depthHist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+
+	double hist_vmin, hist_vmax;
+	int hist_idx_min[2] = { 255,255 }, hist_idx_max[2] = { 255, 255 };
+
+	minMaxIdx(depthHist, &hist_vmin, &hist_vmax, hist_idx_min, hist_idx_max);
 		
 
 // HandleEvents
@@ -225,14 +248,22 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 	if (vmax < initialMax && currentMax > initialMax)
 	{
+		pMOG2 = cv::createBackgroundSubtractorMOG2();
+	}
+	
+	//TODO if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
+	if (depthHist.at<float>(0) * 4 < hist_vmax && !handsCurrentlyTouching)
+	{
+		
+		
 		_3dCoordinates scaledCoords;
 		scaledCoords.values[0] = idx_max[1] * 256 / config->cropRect[0].width;
 		scaledCoords.values[1] = idx_max[0] * 256 / config->cropRect[0].height;
 		scaledCoords.values[2] = vmax * 256 / emptyBoxMinReferrence;
-		
-		DepthEvent handOverSideControl("RemovedHandsFromSandBoxArea", dpthEvent::evnt_Toggle, scaledCoords, 1);
+
+		DepthEvent handsRaisedAboveSand("HandsRaisedClearOfSand", dpthEvent::evnt_Toggle, scaledCoords, 1);
 		objectOrientations.clear();
-		dpthEvntQ.emplace(handOverSideControl);
+		dpthEvntQ.emplace(handsRaisedAboveSand);
 		Mat differenceMap(depthMatOriginal.size(), CV_16U);
 		if (!previousSurface.empty())
 		{
@@ -249,7 +280,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			for (int i = 0; i < differenceMap.cols; i++)
 			{
-				
+
 				if (differenceMap.at<uint16>(j, i) > 255)
 				{
 					//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
@@ -271,7 +302,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cvtColor(multi, grey, COLOR_BGR2GRAY);
 		threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 		findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
-		
+
 		for (size_t i = 0; i < contours.size(); ++i)
 		{
 			orientationVector objOrient;
@@ -292,14 +323,15 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
 			objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
 			objectOrientations.push_back(objOrient);
-			
+
 			DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
 			dpthEvntQ.emplace(foundDiffObj);
 		}
-
-
+		handsRaised = true;
 	}
-// Transmit OSC see above currently
+
+
+	// Transmit OSC see above currently
 // TODO Create packing loop
 	while (!dpthEvntQ.empty())
 	{
@@ -334,6 +366,11 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			}
 			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
 		}
+		if (0 == tmp.getEventName().compare("HandsRaisedClearOfSand"))
+		{
+			_3dCoordinates _3dtmp2 = tmp.getCoordinates();
+			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
+		}
 		if (0 == tmp.getEventName().compare("DifferenceObjectFound"))
 		{
 			orientationVector tmpOrVect = tmp.getOrientationVector();
@@ -361,52 +398,14 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Update Knowledge
 	currentMax = vmax;
+	handsCurrentlyTouching = handsRaised;
 
 // Render Screen
 		// Channel 2 
 		createMask(depthMatOriginal);
-		//medianBlur(Mat2Cropped, Mat2Cropped, 5);
-		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, NORM_L2, CV_16UC1);// CV_L1, CV_16UC1);
-		//cv::normalize(Mat2Cropped, NormMat2, 0, 255, CV_L1, CV_16UC1);
-		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3, 0.25);
-		int numBins = 128;
 		
-		bool uniform = true; bool accumulate = false;
-		Mat depthHist;
-		float range[] = { float(initialMax) * 0.25, 184 };
-		const float* histRange = { range };
-		calcHist(&BeforeColouredMat2, 1, 0, Mat(), depthHist, 1, &numBins, &histRange, uniform, accumulate);
-		
-		int hist_w = 512; int hist_h = 400;
-		int bin_w = cvRound((double)hist_w / numBins);
-
-		Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0, 0, 0));
-
-		/// Normalize the result to [ 0, histImage.rows ]
-		normalize(depthHist, depthHist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
-		
-		double hist_vmin, hist_vmax;
-		int hist_idx_min[2] = { 255,255 }, hist_idx_max[2] = { 255, 255 };
-
-		minMaxIdx(depthHist, &hist_vmin, &hist_vmax, hist_idx_min, hist_idx_max);
 		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
-		//TODO if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
-
-		for (int i = 1; i < numBins; i++)
-		{
-
-
-			line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(depthHist.at<float>(i - 1))),
-				Point(bin_w*(i), hist_h - cvRound(depthHist.at<float>(i))),
-				Scalar(255, 0, 0), 2, 8, 0);
-
-
-		}
-
-
-		line(histImage, Point(initialMax * 0.25, 0), Point(initialMax * 0.25, hist_h - 100), Scalar(0, 255, 255));
-		line(histImage, Point(hist_idx_max[0] * 4, 0), Point(hist_idx_max[0] * 4, hist_h - 100), Scalar(0, 255, 0));
-
+		
 		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
 		int dilation_size = 24; 
@@ -416,20 +415,15 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
 			cv::Point(dilation_size, dilation_size));
 		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
-
 		flipAndDisplay(histImage, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
 		
-		
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-
 		cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
-
 		cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
-
-
+		
 		for (size_t i = 0; i < objectOrientations.size(); ++i)
 		{
 			
