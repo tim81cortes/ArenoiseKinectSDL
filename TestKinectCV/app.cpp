@@ -127,7 +127,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 	Mat BeforeColouredMat;
 	Mat BeforeInvertedMat;
-	Mat differenceMap;
+	
 	Mat DisplayMat;
 	Mat beforeDisplayMat;
 	int colmap = 4; // See openCV's colormap enumeration.
@@ -226,20 +226,23 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	// Send OSC when an event is triggered
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
-	createMask(depthMatOriginal);
-
+	
+	
 
 	// If there are no hands above the sandbox, restart the background subtracktion history
 	if (currentMax  >  initialMax  &&  vmax  <  initialMax )
 	{
-		
-		pMOG2 = cv::createBackgroundSubtractorMOG2();
+		//pMOG2 = cv::createBackgroundSubtractorMOG2();
 		//updatedSurface = depthMatOriginal.clone();
+		//previousSurface = depthMatOriginal.clone();
+		updatedSurface = depthMatOriginal.clone();
 	}
-	
+	createMask(updatedSurface);
 	// if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
 	if (depthHist.at<float>(0) * 4 < hist_vmax)
 	{
+		
+		
 		if(!handsCurrentlyRaisedAboveSand)
 		{
 			//TODO define in terms of hands raised above sandbox
@@ -251,14 +254,13 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			DepthEvent handsRaisedAboveSand("HandsRaisedClearOfSand", dpthEvent::evnt_Toggle, scaledCoords, 1);
 			objectOrientations.clear();
 			dpthEvntQ.emplace(handsRaisedAboveSand);
-			differenceMap = Mat(depthMatOriginal.size(), CV_16U);
+			Mat differenceMap = Mat(depthMatOriginal.size(), CV_16U);
 			if (!previousSurface.empty())
 			{
 				// create difference map
 				subtract(previousSurface.clone(), updatedSurface, differenceMap);
-				//subtract(depthMatOriginal.clone(), previousSurface, differenceMap);
 			}
-			previousSurface = updatedSurface.clone();
+			
 			// Try simple thresholding
 			// TODO add else condition to make sure that the differenceMap is only iterrated over after
 			// previousSurface is populated.
@@ -316,6 +318,12 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			}
 		}
 		
+		handsRaised = true;
+	}
+
+
+	if (handsRaised)
+	{
 		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0, 0);
 		int dilation_size = 24;
 
@@ -327,21 +335,19 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		for (int i = 0; i < fgMaskMOG2.rows; i++)
 		{
-				for (int j = 0; j < fgMaskMOG2.cols; j++)
+			for (int j = 0; j < fgMaskMOG2.cols; j++)
+			{
+				if (255 != fgMaskMOG2.at<uint8>(i, j))
 				{
-					if (255 != fgMaskMOG2.at<uint8>(i, j))
-					{
-						//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
-						updatedSurface.at<uint16>(i, j) = depthMatOriginal.at<uint16>(i, j);
-					}
+					//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
+					updatedSurface.at<uint16>(i, j) = depthMatOriginal.at<uint16>(i, j);
 				}
+			}
 		}
-		
 
-		handsRaised = true;
+		previousSurface = updatedSurface.clone();
 	}
-
-
+	
 
 	// Transmit OSC see above currently
 // TODO Create packing loop
@@ -417,14 +423,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		
 		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
 
-		
-
-		
-		
-		if (handsRaised)
-		{
-		
-		}
 		Mat BeforeColouredMat3;
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		updatedSurface.convertTo(BeforeColouredMat3, CV_8UC3);
@@ -434,8 +432,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		
 		// Channel 1 and side control		
-		
-		
+				
 		cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 		cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 		
@@ -459,10 +456,8 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
 
-		if (!bw.empty()) 
-		{
-			flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
-		}
+		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+
 		// Reporting
 		SafeRelease(depthFrame);
 }
