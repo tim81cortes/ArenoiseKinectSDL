@@ -56,15 +56,16 @@ void App::Init()
 		config->defineRegions(DisplayMat);	
 		
 		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
-		mat2.copyTo(updatedSurface);
+		
 		config->applyConfigurationSettingsToMatrix(mat2, 0);
+		mat2.convertTo(updatedSurface,CV_8UC3);
 		mat2 = mat2(config->cropRect[2]);
 		minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
 		printf("Initial max %3.0f\n", vmax);
 		initialMax = vmax;
 		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 		
-
+		pMOG2 = cv::createBackgroundSubtractorMOG2();
 		// Set flag to say that subsequent frames should be sent to different array
 		initFrameDone = true;
 		
@@ -200,6 +201,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	
 		// Channel 2 
 	Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3, 0.25);
+	
 	int numBins = 128;
 
 	bool uniform = true; bool accumulate = false;
@@ -246,9 +248,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
 
-	if (vmax < initialMax && currentMax > initialMax)
+	if (currentMax  >  initialMax  &&  vmax  <  initialMax )
 	{
 		pMOG2 = cv::createBackgroundSubtractorMOG2();
+
 	}
 	
 	//TODO if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
@@ -276,23 +279,23 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// TODO add else condition to make sure that the differenceMap is only iterrated over after
 		// previousSurface is populated.
 		Mat tmp;
-		for (int j = 0; j < differenceMap.rows; j++)
+		for (int i = 0; i < differenceMap.rows; i++)
 		{
-			for (int i = 0; i < differenceMap.cols; i++)
+			for (int j = 0; j < differenceMap.cols; j++)
 			{
 
-				if (differenceMap.at<uint16>(j, i) > 255)
+				if (differenceMap.at<uint16>(i, j) > 255)
 				{
 					//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-					differenceMap.at<uint16>(j, i) = 0;
+					differenceMap.at<uint16>(i, j) = 0;
 				}
-				else if (differenceMap.at<uint16>(j, i) < 10)
+				else if (differenceMap.at<uint16>(i, j) < 10)
 				{
-					differenceMap.at<uint16>(j, i) = 0;
+					differenceMap.at<uint16>(i, j) = 0;
 				}
 				else
 				{
-					differenceMap.at<uint16>(j, i) = 65532;
+					differenceMap.at<uint16>(i, j) = 65532;
 				}
 			}
 		}
@@ -303,7 +306,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 		findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 
-		for (size_t i = 0; i < contours.size(); ++i)
+		for (int i = 0; i < contours.size(); ++i)
 		{
 			orientationVector objOrient;
 			// Calculate the area of each contour
@@ -405,8 +408,8 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		createMask(depthMatOriginal);
 		
 		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
+
 		
-		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
 		int dilation_size = 24; 
 		
@@ -415,16 +418,36 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
 			cv::Point(dilation_size, dilation_size));
 		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
-		flipAndDisplay(histImage, "CvOutput2", 1);
+		
+		Mat BeforeColouredMat3;
+		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+		Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
+		if (handsRaised)
+		{
+			for (int i = 0; i < BeforeColouredMat2.rows; i++)
+				{
+					for (int j = 0; j < BeforeColouredMat2.cols; j++ )
+					{
+						if (255 != fgMaskMOG2.at<uint8>(i,j)) 
+						{
+							//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
+							updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
+						}
+					}
+				}
+		}
+		
+		cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
+		flipAndDisplay(updatedSurface, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
 		
-		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+		
 		cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 		cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 		
-		for (size_t i = 0; i < objectOrientations.size(); ++i)
+		for (int i = 0; i < objectOrientations.size(); ++i)
 		{
 			
 			Point center(objectOrientations[i].center[0], objectOrientations[i].center[1]);
