@@ -58,7 +58,7 @@ void App::Init()
 		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
 		
 		config->applyConfigurationSettingsToMatrix(mat2, 0);
-		mat2.convertTo(updatedSurface,CV_8UC3);
+		mat2.copyTo(updatedSurface);
 		mat2 = mat2(config->cropRect[2]);
 		minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
 		printf("Initial max %3.0f\n", vmax);
@@ -127,6 +127,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 	Mat BeforeColouredMat;
 	Mat BeforeInvertedMat;
+	Mat differenceMap;
 	Mat DisplayMat;
 	Mat beforeDisplayMat;
 	int colmap = 4; // See openCV's colormap enumeration.
@@ -159,28 +160,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	// Side control
 	config->applyConfigurationSettingsToMatrix(_2ndInteractnArea, 1);
 
-	// Filter noise 
-		// Side control
-	
-		// main channel
-	//for (int j = 0; j < depthMatOriginal.rows; j++)
-	//{
-	//	for (int i = 0; i < depthMatOriginal.cols; i++)
-	//	{
-	//		if (depthMatOriginal.at<uint16>(j, i) > 1300)
-	//		{
-	//			//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-	//			//depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
-	//		}
-	//		else
-	//		{
-	//			if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence)
-	//			{
-	//				updatedSurface.at<uint16>(j, i) = depthMatOriginal.at<uint16>(j, i);
-	//			}
-	//		}
-	//	}
-	//}
 	
 	Mat2Cropped = depthMatOriginal.clone();
 
@@ -247,19 +226,21 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	// Send OSC when an event is triggered
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
-	
+	createMask(depthMatOriginal);
+
+
 	// If there are no hands above the sandbox, restart the background subtracktion history
 	if (currentMax  >  initialMax  &&  vmax  <  initialMax )
 	{
 		
 		pMOG2 = cv::createBackgroundSubtractorMOG2();
-
+		//updatedSurface = depthMatOriginal.clone();
 	}
 	
 	// if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
 	if (depthHist.at<float>(0) * 4 < hist_vmax)
 	{
-		if (!handsCurrentlyRaisedAboveSand) 
+		if(!handsCurrentlyRaisedAboveSand)
 		{
 			//TODO define in terms of hands raised above sandbox
 			_3dCoordinates scaledCoords;
@@ -270,14 +251,14 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			DepthEvent handsRaisedAboveSand("HandsRaisedClearOfSand", dpthEvent::evnt_Toggle, scaledCoords, 1);
 			objectOrientations.clear();
 			dpthEvntQ.emplace(handsRaisedAboveSand);
-			Mat differenceMap(depthMatOriginal.size(), CV_16U);
+			differenceMap = Mat(depthMatOriginal.size(), CV_16U);
 			if (!previousSurface.empty())
 			{
 				// create difference map
-				subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
+				subtract(previousSurface.clone(), updatedSurface, differenceMap);
 				//subtract(depthMatOriginal.clone(), previousSurface, differenceMap);
 			}
-			previousSurface = depthMatOriginal.clone();
+			previousSurface = updatedSurface.clone();
 			// Try simple thresholding
 			// TODO add else condition to make sure that the differenceMap is only iterrated over after
 			// previousSurface is populated.
@@ -334,6 +315,29 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 				dpthEvntQ.emplace(foundDiffObj);
 			}
 		}
+		
+		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0, 0);
+		int dilation_size = 24;
+
+		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
+		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+			cv::Point(dilation_size, dilation_size));
+		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
+
+		for (int i = 0; i < fgMaskMOG2.rows; i++)
+		{
+				for (int j = 0; j < fgMaskMOG2.cols; j++)
+				{
+					if (255 != fgMaskMOG2.at<uint8>(i, j))
+					{
+						//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
+						updatedSurface.at<uint16>(i, j) = depthMatOriginal.at<uint16>(i, j);
+					}
+				}
+		}
+		
+
 		handsRaised = true;
 	}
 
@@ -406,52 +410,27 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Update Knowledge
 	currentMax = vmax;
-	if (handsCurrentlyRaisedAboveSand)
-	{
-		printf("Hands currently raised\n");
-	}
-	else
-	{
-		printf("Hands not currently raised\n");
-	}
 	handsCurrentlyRaisedAboveSand = handsRaised;
 
 // Render Screen
 		// Channel 2 
-		createMask(depthMatOriginal);
 		
 		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
 
 		
-		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
-		int dilation_size = 24; 
+
 		
-		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
-		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
-			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-			cv::Point(dilation_size, dilation_size));
-		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
 		
-		Mat BeforeColouredMat3;
-		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-		Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
 		if (handsRaised)
 		{
-			for (int i = 0; i < BeforeColouredMat2.rows; i++)
-				{
-					for (int j = 0; j < BeforeColouredMat2.cols; j++ )
-					{
-						if (255 != fgMaskMOG2.at<uint8>(i,j)) 
-						{
-							//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
-							updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
-						}
-					}
-				}
-		}
 		
-		cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
-		flipAndDisplay(updatedSurface, "CvOutput2", 1);
+		}
+		Mat BeforeColouredMat3;
+		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+		updatedSurface.convertTo(BeforeColouredMat3, CV_8UC3);
+		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
+		if(!fgMaskMOG2.empty())
+		flipAndDisplay(fgMaskMOG2, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
