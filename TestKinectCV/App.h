@@ -92,7 +92,7 @@ private:
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
-	bool handsCurrentlyTouching = false; // Knowledge
+	bool handsCurrentlyRaisedAboveSand = false; // Knowledge
 	uint16 initialMax; // Knowledge
 	uint16 currentMax; // Knowledge
 	Mat previousSurface; // Knowledge

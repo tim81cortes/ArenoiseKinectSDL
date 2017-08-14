@@ -247,91 +247,96 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	// Send OSC when an event is triggered
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
-
+	
+	// If there are no hands above the sandbox, restart the background subtracktion history
 	if (currentMax  >  initialMax  &&  vmax  <  initialMax )
 	{
+		
 		pMOG2 = cv::createBackgroundSubtractorMOG2();
 
 	}
 	
-	//TODO if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
-	if (depthHist.at<float>(0) * 4 < hist_vmax && !handsCurrentlyTouching)
+	// if first bin < maxval /4 trigger hands above sandpit event and store in knowledge
+	if (depthHist.at<float>(0) * 4 < hist_vmax)
 	{
-		
-		
-		_3dCoordinates scaledCoords;
-		scaledCoords.values[0] = idx_max[1] * 256 / config->cropRect[0].width;
-		scaledCoords.values[1] = idx_max[0] * 256 / config->cropRect[0].height;
-		scaledCoords.values[2] = vmax * 256 / emptyBoxMinReferrence;
+		if (!handsCurrentlyRaisedAboveSand) 
+		{
+			//TODO define in terms of hands raised above sandbox
+			_3dCoordinates scaledCoords;
+			scaledCoords.values[0] = idx_max[1] * 256 / config->cropRect[0].width;
+			scaledCoords.values[1] = idx_max[0] * 256 / config->cropRect[0].height;
+			scaledCoords.values[2] = vmax * 256 / emptyBoxMinReferrence;
 
-		DepthEvent handsRaisedAboveSand("HandsRaisedClearOfSand", dpthEvent::evnt_Toggle, scaledCoords, 1);
-		objectOrientations.clear();
-		dpthEvntQ.emplace(handsRaisedAboveSand);
-		Mat differenceMap(depthMatOriginal.size(), CV_16U);
-		if (!previousSurface.empty())
-		{
-			// create difference map
-			subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
-			//subtract(depthMatOriginal.clone(), previousSurface, differenceMap);
-		}
-		previousSurface = depthMatOriginal.clone();
-		// Try simple thresholding
-		// TODO add else condition to make sure that the differenceMap is only iterrated over after
-		// previousSurface is populated.
-		Mat tmp;
-		for (int i = 0; i < differenceMap.rows; i++)
-		{
-			for (int j = 0; j < differenceMap.cols; j++)
+			DepthEvent handsRaisedAboveSand("HandsRaisedClearOfSand", dpthEvent::evnt_Toggle, scaledCoords, 1);
+			objectOrientations.clear();
+			dpthEvntQ.emplace(handsRaisedAboveSand);
+			Mat differenceMap(depthMatOriginal.size(), CV_16U);
+			if (!previousSurface.empty())
 			{
+				// create difference map
+				subtract(previousSurface.clone(), depthMatOriginal, differenceMap);
+				//subtract(depthMatOriginal.clone(), previousSurface, differenceMap);
+			}
+			previousSurface = depthMatOriginal.clone();
+			// Try simple thresholding
+			// TODO add else condition to make sure that the differenceMap is only iterrated over after
+			// previousSurface is populated.
+			Mat tmp;
+			for (int i = 0; i < differenceMap.rows; i++)
+			{
+				for (int j = 0; j < differenceMap.cols; j++)
+				{
 
-				if (differenceMap.at<uint16>(i, j) > 255)
-				{
-					//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-					differenceMap.at<uint16>(i, j) = 0;
-				}
-				else if (differenceMap.at<uint16>(i, j) < 10)
-				{
-					differenceMap.at<uint16>(i, j) = 0;
-				}
-				else
-				{
-					differenceMap.at<uint16>(i, j) = 65532;
+					if (differenceMap.at<uint16>(i, j) > 255)
+					{
+						//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
+						differenceMap.at<uint16>(i, j) = 0;
+					}
+					else if (differenceMap.at<uint16>(i, j) < 10)
+					{
+						differenceMap.at<uint16>(i, j) = 0;
+					}
+					else
+					{
+						differenceMap.at<uint16>(i, j) = 65532;
+					}
 				}
 			}
-		}
 
-		differenceMap.convertTo(currentDifferenceMap, CV_8U);
-		cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
-		cvtColor(multi, grey, COLOR_BGR2GRAY);
-		threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-		findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+			differenceMap.convertTo(currentDifferenceMap, CV_8U);
+			cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
+			cvtColor(multi, grey, COLOR_BGR2GRAY);
+			threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+			findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 
-		for (int i = 0; i < contours.size(); ++i)
-		{
-			orientationVector objOrient;
-			// Calculate the area of each contour
-			double area = contourArea(contours[i]);
-			// Ignore contours that are too small or too large
-			if (area < 1e2 || 1e5 < area)
+			for (int i = 0; i < contours.size(); ++i)
 			{
-				continue;
+				orientationVector objOrient;
+				// Calculate the area of each contour
+				double area = contourArea(contours[i]);
+				// Ignore contours that are too small or too large
+				if (area < 1e2 || 1e5 < area)
+				{
+					continue;
+				}
+				// Draw each contour only for visualisation purposes
+				drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
+				// Find the orientation of each shape
+
+				getOrientation(contours[i], DisplayMat, objOrient);
+
+				// Calculate the distance between points
+				objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
+				objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
+				objectOrientations.push_back(objOrient);
+
+				DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
+				dpthEvntQ.emplace(foundDiffObj);
 			}
-			// Draw each contour only for visualisation purposes
-			drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
-			// Find the orientation of each shape
-
-			getOrientation(contours[i], DisplayMat, objOrient);
-
-			// Calculate the distance between points
-			objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
-			objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
-			objectOrientations.push_back(objOrient);
-
-			DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
-			dpthEvntQ.emplace(foundDiffObj);
 		}
 		handsRaised = true;
 	}
+
 
 
 	// Transmit OSC see above currently
@@ -401,7 +406,15 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Update Knowledge
 	currentMax = vmax;
-	handsCurrentlyTouching = handsRaised;
+	if (handsCurrentlyRaisedAboveSand)
+	{
+		printf("Hands currently raised\n");
+	}
+	else
+	{
+		printf("Hands not currently raised\n");
+	}
+	handsCurrentlyRaisedAboveSand = handsRaised;
 
 // Render Screen
 		// Channel 2 
