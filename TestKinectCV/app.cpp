@@ -480,10 +480,9 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
 
-		if (!bw.empty()) 
-		{
-			flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
-		}
+
+		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+		
 		// Reporting
 		SafeRelease(depthFrame);
 }
