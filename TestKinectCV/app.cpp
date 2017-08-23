@@ -47,6 +47,8 @@ void App::Init()
 		config->defineRegions(DisplayMat);		
 		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
 
+		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
+
 		// Set flag to say that subsequent frames should be sent to different array
 		initFrameDone = true;
 		mat2.copyTo(updatedSurface);
@@ -324,7 +326,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			// Find the orientation of each shape
 			getOrientation(contours[i], DisplayMat, objOrient);
 			//objectOrientations.emplace(objOrient);
-			printf("objOrient centr x: %d y: %d", objOrient.center[0], objOrient.center[1]);
+			//printf("objOrient centr x: %d y: %d", objOrient.center[0], objOrient.center[1]);
 			Point center(objOrient.center[0], objOrient.center[1]);
 			Point front(objOrient.front[0], objOrient.front[1]);
 			Point side(objOrient.side[0], objOrient.side[1]);
