@@ -96,6 +96,7 @@ private:
 	uint16 initialMax; // Knowledge
 	uint16 currentMax; // Knowledge
 	Mat previousSurface; // Knowledge
+	Mat previouslyUpdatedSurface; // Knowledge
 	Mat currentDifferenceMap; // Knowledge
 	Mat updatedSurface; // Knowledge
 	std::vector<Vec4i> hierarchy;

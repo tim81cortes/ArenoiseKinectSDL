@@ -309,30 +309,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 			findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 
-			for (int i = 0; i < contours.size(); ++i)
-			{
-				orientationVector objOrient;
-				// Calculate the area of each contour
-				double area = contourArea(contours[i]);
-				// Ignore contours that are too small or too large
-				if (area < 1e2 || 1e5 < area)
-				{
-					continue;
-				}
-				// Draw each contour only for visualisation purposes
-				drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
-				// Find the orientation of each shape
-
-				getOrientation(contours[i], DisplayMat, objOrient);
-
-				// Calculate the distance between points
-				objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
-				objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
-				objectOrientations.push_back(objOrient);
-
-				DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
-				dpthEvntQ.emplace(foundDiffObj);
-			}
+			
 		}
 		handsRaised = true;
 	}
@@ -406,85 +383,123 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Update Knowledge
 	currentMax = vmax;
-	if (handsCurrentlyRaisedAboveSand)
-	{
-		printf("Hands currently raised\n");
-	}
-	else
-	{
-		printf("Hands not currently raised\n");
-	}
 	handsCurrentlyRaisedAboveSand = handsRaised;
 
 // Render Screen
-		// Channel 2 
-		createMask(depthMatOriginal);
+	// Channel 2 
+	createMask(depthMatOriginal);
 		
-		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
+	//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
 
 		
-		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
-		int dilation_size = 24; 
+	cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
+	int dilation_size = 24; 
 		
-		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
-		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
-			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-			cv::Point(dilation_size, dilation_size));
-		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
+	subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
+	cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+		cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+		cv::Point(dilation_size, dilation_size));
+	cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
 		
-		Mat BeforeColouredMat3;
-		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-		Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
-		if (handsRaised)
-		{
-			for (int i = 0; i < BeforeColouredMat2.rows; i++)
+	Mat BeforeColouredMat3;
+	depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
+	Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
+	if (handsRaised)
+	{
+		for (int i = 0; i < BeforeColouredMat2.rows; i++)
+			{
+				for (int j = 0; j < BeforeColouredMat2.cols; j++ )
 				{
-					for (int j = 0; j < BeforeColouredMat2.cols; j++ )
+					if (255 != fgMaskMOG2.at<uint8>(i,j)) 
 					{
-						if (255 != fgMaskMOG2.at<uint8>(i,j)) 
-						{
-							//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
-							updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
-						}
+						//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
+						updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
 					}
 				}
-		}
-		
-		cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
-		flipAndDisplay(updatedSurface, "CvOutput2", 1);
+			}
+	}
+	Mat bw2;
+	if (!previouslyUpdatedSurface.empty())
+	{
+		// create difference map
+		Mat differenceMapMasked;
 
-		
-		// Channel 1 and side control		
-		
-		
-		cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
-		cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
-		
-		for (int i = 0; i < objectOrientations.size(); ++i)
+		if (handsRaised)
 		{
-			
-			Point center(objectOrientations[i].center[0], objectOrientations[i].center[1]);
-			Point front(objectOrientations[i].front[0], objectOrientations[i].front[1]);
-			Point side(objectOrientations[i].side[0], objectOrientations[i].side[1]);
-			drawAxis(DisplayMat, center, front, Scalar(0, 0, 255), 1);
-			drawAxis(DisplayMat, center, side, Scalar(255, 255, 0), 5);
-			circle(DisplayMat, center, 3, Scalar(255, 0, 255), 2);
-			
+			if (!previouslyUpdatedSurface.empty())
+			{
+				subtract(previouslyUpdatedSurface.clone(), updatedSurface, differenceMapMasked);
+			}
+
+			previouslyUpdatedSurface = updatedSurface.clone();
+			threshold(differenceMapMasked, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+			findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+			for (int i = 0; i < contours.size(); ++i)
+			{
+				orientationVector objOrient;
+				// Calculate the area of each contour
+				double area = contourArea(contours[i]);
+				// Ignore contours that are too small or too large
+				if (area < 1e2 || 1e5 < area)
+				{
+					continue;
+				}
+				// Draw each contour only for visualisation purposes
+				drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
+				// Find the orientation of each shape
+
+				getOrientation(contours[i], DisplayMat, objOrient);
+
+				// Calculate the distance between points
+				objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
+				objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
+				objectOrientations.push_back(objOrient);
+
+				DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
+				dpthEvntQ.emplace(foundDiffObj);
+			}
 		}
 
+	}
+	cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
+	if (!bw2.empty())
+	{
+		flipAndDisplay(bw2, "CvOutput2", 1);
+	}
+	
+
 		
-		_2ndIntAreaWidth = config->cropRect[1].width;
-		beforeDisplayMat = Mat(DisplayMat.rows, DisplayMat.cols, CV_8UC3);
-		DisplayMat.copyTo(beforeDisplayMat(Rect(0, 0, DisplayMat.cols, DisplayMat.rows)));
-		cv::rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
-		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
-
-
-
-		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+	// Channel 1 and side control		
 		
-		// Reporting
-		SafeRelease(depthFrame);
+		
+	cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
+	cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
+		
+	for (int i = 0; i < objectOrientations.size(); ++i)
+	{
+			
+		Point center(objectOrientations[i].center[0], objectOrientations[i].center[1]);
+		Point front(objectOrientations[i].front[0], objectOrientations[i].front[1]);
+		Point side(objectOrientations[i].side[0], objectOrientations[i].side[1]);
+		drawAxis(DisplayMat, center, front, Scalar(0, 0, 255), 1);
+		drawAxis(DisplayMat, center, side, Scalar(255, 255, 0), 5);
+		circle(DisplayMat, center, 3, Scalar(255, 0, 255), 2);
+			
+	}
+
+		
+	_2ndIntAreaWidth = config->cropRect[1].width;
+	beforeDisplayMat = Mat(DisplayMat.rows, DisplayMat.cols, CV_8UC3);
+	DisplayMat.copyTo(beforeDisplayMat(Rect(0, 0, DisplayMat.cols, DisplayMat.rows)));
+	cv::rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
+	flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
+
+
+
+	flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+		
+	// Reporting
+	SafeRelease(depthFrame);
 }
 
 
