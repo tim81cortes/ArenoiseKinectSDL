@@ -65,6 +65,8 @@ void App::Init()
 		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 		
 
+		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
+
 		// Set flag to say that subsequent frames should be sent to different array
 		initFrameDone = true;
 		
