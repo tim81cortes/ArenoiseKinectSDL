@@ -37,8 +37,6 @@ void App::Init()
 		
 		depthBufferCurrentDepthFrame = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
-		pMOG2 = cv::createBackgroundSubtractorMOG2();
-
 
 		while(!getFrame());
 		
@@ -360,20 +358,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Render Screen
 		// Channel 2 
-		createMask(depthMatOriginal);
 		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
+		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		
-		cv::applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
-		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
-		int dilation_size = 24; 
-		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
-			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-			cv::Point(dilation_size, dilation_size));
-
-
-		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
-		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
-		flipAndDisplay(fgMaskMOG2, "CvOutput2", 1);
+		flipAndDisplay(DisplayMat2, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
@@ -381,9 +369,9 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 
-		cv::addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
+		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 
-		cv::applyColorMap(BeforeColouredMat, DisplayMat, colmap);
+		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
 
 
 		for (size_t i = 0; i < objectOrientations.size(); ++i)
@@ -492,7 +480,7 @@ void App::createMask(Mat & src)
 {
 	//update the background model
 	//pMOG->apply(src.clone(), fgMaskMOG);
-	pMOG2->apply(src, fgMaskMOG2);
+	//pMOG2->apply(src, fgMaskMOG2);
 	//get the frame number and write it on the current frame
 	
 	
