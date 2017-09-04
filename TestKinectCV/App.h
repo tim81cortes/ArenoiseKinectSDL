@@ -82,6 +82,9 @@ private:
 	// size of the buffer is SCRWIDTH * SCRHIGHT * sizeof(uint32)
 	double currentSideControlCoords[3] = {0,0,0}; // Knowledge
 	uint32* m_pixelBuffer = nullptr;
+	uint8 major_intervals[7] = {0,2,4,5,7,9,11};
+	uint16 pitch = 35;
+	uint8 scaledNoteVal = 0;
 	IKinectSensor* m_sensor = nullptr;
 	IDepthFrameReader* m_depthFrameReader = nullptr;
 	uint16* depthBufferUpdatedSurface = nullptr;

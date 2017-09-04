@@ -332,24 +332,23 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			orientationVector tmpOrVect = tmp.getOrientationVector();
 			printf("Event triggered Name: %s Type: %d X: %d Y: %d\n", tmp.getEventName().c_str(), tmp.getEventType(), tmpOrVect.front[0], tmpOrVect.front[1]);
-			uint16 pitch = 45 + tmpOrVect.center[0] * 45 / config->cropRect[0].width;
+			scaledNoteVal = 21 - uint8(floor(tmpOrVect.center[0] * 21 / config->cropRect[0].width));
+			pitch = 36 + ((major_intervals[scaledNoteVal % 7]) + (floor(scaledNoteVal / 7) * 12));
 			uint16 cutoffLPF = 500 + tmpOrVect.center[1] * 1500 / config->cropRect[0].height;
 			uint16 duration = tmpOrVect.distFromCentre[0] * 500 / 100;
-			uint16 amplitude = tmpOrVect.distFromCentre[1]; //* 100 / 100
-
+			uint16 amplitude = 5 + tmpOrVect.distFromCentre[1] * 2; //* 100 / 100
+			printf("Mod ScaledNote: %d", scaledNoteVal % 7);
 			try
 			{
 				//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
 				outBoundPS << osc::BeginMessage("/t") << pitch << cutoffLPF << duration << amplitude <<osc::EndMessage;
 				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
 				outBoundPS.Clear();
-				
 			}
 			catch (Exception e)
 			{
 				printf("Error: %s %s", e.err, e.msg);
 			}
-			
 		}
 	}
 
@@ -362,37 +361,44 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		
 		flipAndDisplay(DisplayMat2, "CvOutput2", 1);
-
+		
 		
 		// Channel 1 and side control		
-		
-		
+		Mat Cs(depthMatOriginal.size(), CV_8UC3);
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-
 		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
-
 		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
-
-
+		
 		for (size_t i = 0; i < objectOrientations.size(); ++i)
 		{
-			
 			Point center(objectOrientations[i].center[0], objectOrientations[i].center[1]);
 			Point front(objectOrientations[i].front[0], objectOrientations[i].front[1]);
 			Point side(objectOrientations[i].side[0], objectOrientations[i].side[1]);
 			drawAxis(DisplayMat, center, front, Scalar(0, 0, 255), 1);
 			drawAxis(DisplayMat, center, side, Scalar(255, 255, 0), 5);
 			circle(DisplayMat, center, 3, Scalar(255, 0, 255), 2);
-			
 		}
-
-		
+				
 		_2ndIntAreaWidth = config->cropRect[1].width;
 		beforeDisplayMat = Mat(DisplayMat.rows, DisplayMat.cols, CV_8UC3);
 		DisplayMat.copyTo(beforeDisplayMat(Rect(0, 0, DisplayMat.cols, DisplayMat.rows)));
 		cv::rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
-		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
+		
+		//Rect firstC = Rect(Point(uint8(floor(config->cropRect[0].x / 3)), 0), Point(uint8(floor(config->cropRect[0].width / 3)), config->cropRect[0].height));
+		Rect firstC = Rect(config->cropRect[0].width - config->cropRect[0].width / 22, 0, config->cropRect[0].width / 22, config->cropRect[0].height);
+		Rect secondC = Rect(config->cropRect[0].width - uint8(floor(config->cropRect[0].width / 3)),0,config->cropRect[0].width/22, config->cropRect[0].height);
+		Rect thirdC = Rect(config->cropRect[0].width - uint8(floor(config->cropRect[0].width / 3 * 2)), 0, config->cropRect[0].width / 22, config->cropRect[0].height);
+		Rect fourthC = Rect(0, 0, config->cropRect[0].width / 22, config->cropRect[0].height);
+		//Rect firstC = Rect(Point(config->cropRect[0].x, 100), Point(200, 200));
+		putText(beforeDisplayMat, format("Note: %d Object index: %d", pitch , scaledNoteVal), cvPoint(50, 30),
+			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0, 0, 0), 1, CV_AA);
+		cv::rectangle(Cs, firstC, Scalar(255,0,0, 50), CV_FILLED);
+		cv::rectangle(Cs, secondC, Scalar(255, 0, 0, 50), CV_FILLED);
+		cv::rectangle(Cs, thirdC, Scalar(255, 0, 0, 50), CV_FILLED);
+		cv::rectangle(Cs, fourthC, Scalar(255, 0, 0, 50), CV_FILLED);
+		addWeighted(beforeDisplayMat, 1, Cs, 0.2, 1, beforeDisplayMat);
 
+		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
 		if (!bw.empty()) 
 		{
