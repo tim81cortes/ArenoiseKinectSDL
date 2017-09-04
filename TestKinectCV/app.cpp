@@ -290,8 +290,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
 			dpthEvntQ.emplace(foundDiffObj);
 		}
-
-
 	}
 // Transmit OSC see above currently
 // TODO Create packing loop
@@ -301,7 +299,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		dpthEvntQ.pop();
 		if (0 == tmp.getEventName().compare("HandOverSideControl") )
 		{
-
 			_3dCoordinates _3dtmp2 = tmp.getCoordinates();
 			uint16 rate = _3dtmp2.values[2] * 10 / 65;
 			uint16 depth = 320 - _3dtmp2.values[1] * 320 / 255;
@@ -327,15 +324,20 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 				printf("Error: %s %s", e.err, e.msg);
 			}
 			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
+			uint8 randNoteIndex = rand() % 21;
+			randNote[0] = cMajor[randNoteIndex % 7];
+			randNote[1] = floor(randNoteIndex / 7) + 3;
 		}
 		if (0 == tmp.getEventName().compare("DifferenceObjectFound"))
 		{
 			orientationVector tmpOrVect = tmp.getOrientationVector();
 			printf("Event triggered Name: %s Type: %d X: %d Y: %d\n", tmp.getEventName().c_str(), tmp.getEventType(), tmpOrVect.front[0], tmpOrVect.front[1]);
 			scaledNoteVal = 21 - uint8(floor(tmpOrVect.center[0] * 21 / config->cropRect[0].width));
+			lastNote[0] = cMajor[scaledNoteVal % 7];
+			lastNote[1] = floor(scaledNoteVal / 7) + 3;
 			pitch = 36 + ((major_intervals[scaledNoteVal % 7]) + (floor(scaledNoteVal / 7) * 12));
 			uint16 cutoffLPF = 500 + tmpOrVect.center[1] * 1500 / config->cropRect[0].height;
-			uint16 duration = tmpOrVect.distFromCentre[0] * 500 / 100;
+			duration = tmpOrVect.distFromCentre[0] * 500 / 100;
 			uint16 amplitude = 5 + tmpOrVect.distFromCentre[1] * 2; //* 100 / 100
 			printf("Mod ScaledNote: %d", scaledNoteVal % 7);
 			try
@@ -365,6 +367,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		
 		// Channel 1 and side control		
 		Mat Cs(depthMatOriginal.size(), CV_8UC3);
+		Mat Overlay(depthMatOriginal.size(), CV_8UC3);
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
 		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
 		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
@@ -385,19 +388,24 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cv::rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
 		
 		//Rect firstC = Rect(Point(uint8(floor(config->cropRect[0].x / 3)), 0), Point(uint8(floor(config->cropRect[0].width / 3)), config->cropRect[0].height));
+		beforeDisplayMat.copyTo(Overlay);
+		flip(Overlay, Overlay, 1);
 		Rect firstC = Rect(config->cropRect[0].width - config->cropRect[0].width / 22, 0, config->cropRect[0].width / 22, config->cropRect[0].height);
 		Rect secondC = Rect(config->cropRect[0].width - uint8(floor(config->cropRect[0].width / 3)),0,config->cropRect[0].width/22, config->cropRect[0].height);
 		Rect thirdC = Rect(config->cropRect[0].width - uint8(floor(config->cropRect[0].width / 3 * 2)), 0, config->cropRect[0].width / 22, config->cropRect[0].height);
 		Rect fourthC = Rect(0, 0, config->cropRect[0].width / 22, config->cropRect[0].height);
 		//Rect firstC = Rect(Point(config->cropRect[0].x, 100), Point(200, 200));
-		putText(beforeDisplayMat, format("Note: %d Object index: %d", pitch , scaledNoteVal), cvPoint(50, 30),
+		putText(Overlay, format("Last note: %c%d Please play: %c%d " , lastNote[0], lastNote[1], randNote[0] , randNote[1]), cvPoint(10, 30),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0, 0, 0), 1, CV_AA);
+		putText(Overlay, format("Dur: %d ",duration), cvPoint(10, 50),
+			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0, 0, 0), 1, CV_AA);
+		flip(Overlay, Overlay, 1);
 		cv::rectangle(Cs, firstC, Scalar(255,0,0, 50), CV_FILLED);
 		cv::rectangle(Cs, secondC, Scalar(255, 0, 0, 50), CV_FILLED);
 		cv::rectangle(Cs, thirdC, Scalar(255, 0, 0, 50), CV_FILLED);
 		cv::rectangle(Cs, fourthC, Scalar(255, 0, 0, 50), CV_FILLED);
-		addWeighted(beforeDisplayMat, 1, Cs, 0.2, 1, beforeDisplayMat);
-
+		addWeighted(Overlay, 0.8, Cs, 0.2, 1, beforeDisplayMat);
+		//addWeighted(beforeDisplayMat, 0.3, Overlay, 0.7, 1, beforeDisplayMat);
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
 		if (!bw.empty()) 

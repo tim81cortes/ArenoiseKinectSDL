@@ -83,6 +83,11 @@ private:
 	double currentSideControlCoords[3] = {0,0,0}; // Knowledge
 	uint32* m_pixelBuffer = nullptr;
 	uint8 major_intervals[7] = {0,2,4,5,7,9,11};
+	char cMajor[7] = { 'C','D','E','F','G','A','B' };
+	uint8 scaledRandNote = 0;
+	char randNote[2] = { 0,0 };
+	char lastNote[2] = { 0,0 };
+	uint16 duration = 0;
 	uint16 pitch = 35;
 	uint8 scaledNoteVal = 0;
 	IKinectSensor* m_sensor = nullptr;
