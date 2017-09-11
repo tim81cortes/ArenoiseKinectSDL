@@ -107,13 +107,20 @@ void Configure::onMouse(int event, int x, int y, int f, void* userData) {
 	}
 
 void Configure::defineRegions(Mat& capturedImage) {
+	bool noExistingConfigFile = loadConfigSettingsFromFile();
 	
-	namedWindow("Choose interaction area then highlight dead pixels.", CV_WINDOW_NORMAL);
-	do {
-		setMouseCallback("Choose interaction area then highlight dead pixels.", onMouse, this);
-		imshow("Choose interaction area then highlight dead pixels.", capturedImage);
+	
+	if (noExistingConfigFile) 
+	{
+		namedWindow("Choose interaction area then highlight dead pixels.", CV_WINDOW_NORMAL);
+		do {
+			setMouseCallback("Choose interaction area then highlight dead pixels.", onMouse, this);
+			imshow("Choose interaction area then highlight dead pixels.", capturedImage);
 		
-	} while (cvWaitKey(0) != 27);
+		} while (cvWaitKey(0) != 27);
+		saveConfigSettingsToFile();
+	}
+
 	
 
 }
@@ -215,6 +222,52 @@ unsigned short Configure::calculateTotalDifferenceFromMin(Mat& depthFrame) {
 		return unsigned short(sum(depthFrame)[0]);
 	}
 	
+	return 0;
+}
+
+bool Configure::loadConfigSettingsFromFile()
+{
+	FileStorage fs;
+	std::string filename = "ConfigurationFiles\\configSettings.xml";
+	FileNode fn = fs["AnomolousReadingsToBlur"];
+	try
+	{
+		FileStorage file(filename, FileStorage::READ);
+		file["CropRect0"] >> cropRect[0];
+		file["CropRect1"] >> cropRect[1];
+		FileNodeIterator it = fn.begin(), it_end = fn.end(); // Go through the node
+		for (; it != it_end; ++it)
+		{
+			std::cout << (std::string)*it << std::endl;
+		}
+			
+	}
+	catch (Exception e)
+	{
+		printf("There was an error loading the configuration file. %s \n", e.msg);
+		
+	}
+
+	fs.release();
+
+
+	return true;
+}
+unsigned short Configure::saveConfigSettingsToFile()
+{
+	std::string filename = "ConfigurationFiles\\configSettings.xml";
+	FileStorage file(filename.c_str(), FileStorage::WRITE);
+	for (unsigned short i = 0; i < 2; i++)
+	{
+		file << "CropRect" + std::to_string(i) << cropRect[i];
+	}
+	file << "AnomolousReadingsToBlur" << "{";
+	for (unsigned short i = 0; i < rectangles.size(); i++)
+	{
+		file <<  "rect" + std::to_string(i) << rectangles[i];
+	}
+	file << "}";
+	file.release();
 	return 0;
 }
 

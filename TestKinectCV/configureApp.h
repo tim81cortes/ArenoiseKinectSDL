@@ -43,6 +43,7 @@ public:
 	unsigned short getZeroReferenceFromMatrix(Mat depthFrame);
 	void saveImage(Mat& src, int count);
 	unsigned short calculateTotalDifferenceFromMin(Mat& initDepthFrame);
-	
+	bool loadConfigSettingsFromFile();
+	unsigned short saveConfigSettingsToFile();
 };
 
