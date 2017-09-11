@@ -77,7 +77,7 @@ void Configure::onMouse(int event, int x, int y) {
 			int relativeSize = round(double(tmpRect.height)/10);
 			Rect tmpRect2(0,  tmpRect.height - relativeSize, tmpRect.width, relativeSize);
 			cropRect[2] = tmpRect2;
-			printf("Interaction area 1 set as X: %d Y: %d W: %d H: %d \n", 0, tmpRect.height - relativeSize, tmpRect.width, relativeSize);
+			printf("Interaction area 3 set as X: %d Y: %d W: %d H: %d \n", 0, tmpRect.height - relativeSize, tmpRect.width, relativeSize);
  			displayAreaSet = true;
 
 		}
@@ -106,23 +106,23 @@ void Configure::onMouse(int event, int x, int y, int f, void* userData) {
 	config->onMouse(event, x, y);
 	}
 
-void Configure::defineRegions(Mat& capturedImage) {
-	bool noExistingConfigFile = loadConfigSettingsFromFile();
+void Configure::defineRegions(Mat& displayImage, Mat& originalImage) {
+	bool configFileExists = false;
+	configFileExists = loadConfigSettingsFromFile();
 	
-	
-	if (noExistingConfigFile) 
+	if (!configFileExists) 
 	{
 		namedWindow("Choose interaction area then highlight dead pixels.", CV_WINDOW_NORMAL);
 		do {
 			setMouseCallback("Choose interaction area then highlight dead pixels.", onMouse, this);
-			imshow("Choose interaction area then highlight dead pixels.", capturedImage);
+			imshow("Choose interaction area then highlight dead pixels.", displayImage);
 		
 		} while (cvWaitKey(0) != 27);
+		applyConfigurationSettingsToMatrix(originalImage, 0);
+		originalImage = originalImage(cropRect[2]);
+		calculateInitialHandsRemovedRoIMax(originalImage);
 		saveConfigSettingsToFile();
 	}
-
-	
-
 }
 void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea) 
 {
@@ -209,8 +209,7 @@ unsigned short Configure::getZeroReference(Mat initDepthFrame) {
 	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 
 	minMaxIdx(blurMat, &vmin, &vmax, idx_min, idx_max);
-	printf("MaxVal: %5.0f \n"
-		, vmax);
+	printf("MaxVal: %5.0f \n", vmax);
 	maxVal = unsigned short(vmax);
 	return maxVal;
 }
@@ -227,48 +226,88 @@ unsigned short Configure::calculateTotalDifferenceFromMin(Mat& depthFrame) {
 
 bool Configure::loadConfigSettingsFromFile()
 {
-	FileStorage fs;
+	
 	std::string filename = "ConfigurationFiles\\configSettings.xml";
-	FileNode fn = fs["AnomolousReadingsToBlur"];
+	FileStorage file;
 	try
 	{
-		FileStorage file(filename, FileStorage::READ);
-		file["CropRect0"] >> cropRect[0];
-		file["CropRect1"] >> cropRect[1];
-		FileNodeIterator it = fn.begin(), it_end = fn.end(); // Go through the node
-		for (; it != it_end; ++it)
+		file.open(filename, FileStorage::READ);
+		if (!file.isOpened())
 		{
-			std::cout << (std::string)*it << std::endl;
+			printf("There was an error loading the configuration file.  \n");
+			return false;
 		}
+
+		FileNode fn = file["AnomolousReadingsToBlur"];
+		file["CropRect0"] >> cropRect[0];
+		printf("Interaction area 1 set as X: %d Y: %d W: %d H: %d \n", cropRect[0].x, cropRect[0].y, cropRect[0].width, cropRect[0].height);
+
+		file["CropRect1"] >> cropRect[1];
+		printf("Interaction area 2 set as X: %d Y: %d W: %d H: %d \n", cropRect[1].x, cropRect[1].y, cropRect[1].width, cropRect[1].height);
+
+		file["CropRect2"] >> cropRect[2];
+		printf("Interaction area 3 set as X: %d Y: %d W: %d H: %d \n", cropRect[2].x, cropRect[2].y, cropRect[2].width, cropRect[2].height);
+
+		file["HandsRemovedRoIInitialMax"] >> configuredSandboxRimHeight;
+		// Read string sequence - Get node
+		if (fn.type() != FileNode::SEQ)
+		{
+			std::cerr << "AnomolousReadingsToBlur is not a sequence! FAIL" << std::endl;
+			return false;
+		}
+
+		for (FileNodeIterator current = fn.begin(); current != fn.end(); current++) {
+			FileNode item = *current;
+			Rect tmpRect;
+			item >> tmpRect;
+			printf("Rectangle added for blurring. X: %d Y: %d W: %d H: %d \n", tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
+			rectangles.push_back(tmpRect);
 			
+		}
 	}
-	catch (Exception e)
+	catch (cv::Exception& e)
 	{
 		printf("There was an error loading the configuration file. %s \n", e.msg);
 		
+		file.release();
+		return false;
 	}
-
-	fs.release();
-
-
+	file.release();
+	
 	return true;
 }
 unsigned short Configure::saveConfigSettingsToFile()
 {
 	std::string filename = "ConfigurationFiles\\configSettings.xml";
 	FileStorage file(filename.c_str(), FileStorage::WRITE);
-	for (unsigned short i = 0; i < 2; i++)
+	file << "HandsRemovedRoIInitialMax" << configuredSandboxRimHeight;
+	for (unsigned short i = 0; i < 3; i++)
 	{
 		file << "CropRect" + std::to_string(i) << cropRect[i];
 	}
-	file << "AnomolousReadingsToBlur" << "{";
+	file << "AnomolousReadingsToBlur" << "[";
 	for (unsigned short i = 0; i < rectangles.size(); i++)
 	{
-		file <<  "rect" + std::to_string(i) << rectangles[i];
+		file <<  rectangles[i];
 	}
-	file << "}";
+	file << "]";
 	file.release();
 	return 0;
+}
+
+void Configure::calculateInitialHandsRemovedRoIMax(Mat& src)
+{
+	double vmin, vmax;
+	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+	minMaxIdx(src, &vmin, &vmax, idx_min, idx_max);
+	configuredSandboxRimHeight = unsigned short(vmax);
+	printf("Initial max %2.0f\n", vmax);
+	
+}
+
+unsigned short Configure::getInitialHandsRemovedRoIMax()
+{
+	return  configuredSandboxRimHeight;
 }
 
 void Configure::saveImage(Mat& src, int count) {

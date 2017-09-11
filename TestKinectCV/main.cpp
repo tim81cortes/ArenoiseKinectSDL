@@ -24,10 +24,10 @@ int main(int, char**)
 	memset(pixelBuffer, 0, DEPTHMAPWIDTH * DEPTHMAPHEIGHT * 4);
 
 	UdpTransmitSocket transmitSocket(IpEndpointName(ADDRESS, PORT));
-	//UdpTransmitSocket udpTransmitSocket1 = transmitSocket;
+	
 
 	char buffer[OUTPUT_BUFFER_SIZE];
-	//char* buffer1 = buffer;
+	
 
 	osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
 

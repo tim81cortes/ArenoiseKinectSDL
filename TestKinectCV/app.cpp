@@ -44,22 +44,19 @@ void App::Init()
 		Mat NormMat;
 		Mat DisplayMat;
 		
-		double vmin, vmax;
-		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+		//double vmin, vmax;
+		//int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 		
-		
-
 		cv::normalize(mat2, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
-		NormMat.convertTo(DisplayMat, CV_8UC3);
-		config->defineRegions(DisplayMat);	
-		
 		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
 		mat2.copyTo(updatedSurface);
-		config->applyConfigurationSettingsToMatrix(mat2, 0);
-		mat2 = mat2(config->cropRect[2]);
-		minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
-		printf("Initial max %d\n", vmax);
-		initialMax = vmax;
+		NormMat.convertTo(DisplayMat, CV_8UC3);
+		config->defineRegions(DisplayMat, mat2);	
+		configuredSandboxRimHeight = config->getInitialHandsRemovedRoIMax();
+		//mat2 = mat2(config->cropRect[2]);
+		//minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
+		printf("Initial max %d\n", configuredSandboxRimHeight);
+		//initialMax = vmax;
 		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 		
 
@@ -133,7 +130,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat bw;
 	Mat multi;
 	Mat grey;
-	uint32 cumulativeDifferenceFromMin = 0;
+	//uint32 cumulativeDifferenceFromMin = 0;
 	
 	// Channel 2 depth filter
 	Mat Mat2Cropped;
@@ -192,7 +189,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// Channel 1 main
 	Mat aggragateMat = Mat(depthMatOriginal.clone(), config->cropRect[2]);
 	minMaxIdx(aggragateMat, &vmin, &vmax, idx_min, idx_max);
-	//printf("Max at front of pit: %3.0f \n", vmax );
+	printf("Max at front of pit: %d \n", uint16(vmax));
 // HandleEvents
 	// Side control area
 	if (scaledCoords.values[2] > 35 && scaledCoords.values[2] < 100)
@@ -217,7 +214,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	uint16 pitchVal = 48 + floor(double(35) / depthMatOriginal.cols * idx_max[1]);
 	uint16 lpfVal = 1000 + floor(double(2000) / depthMatOriginal.cols * idx_max[0]);
 
-	if (vmax < initialMax && currentMax > initialMax)
+	if (uint16(vmax) < configuredSandboxRimHeight && currentMax > configuredSandboxRimHeight)
 	{
 		_3dCoordinates scaledCoords;
 		scaledCoords.values[0] = idx_max[1] * 256 / config->cropRect[0].width;

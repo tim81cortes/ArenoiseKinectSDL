@@ -27,6 +27,7 @@ private:
 	std::vector<Rect> rectangles;
 	int interactionAreaMaxDepth = 0;
 	unsigned short boxBottom[2];
+	unsigned short configuredSandboxRimHeight;
 	
 
 public:
@@ -35,7 +36,7 @@ public:
 	//~Configure();
 	void onMouse(int event, int x, int y);
 	static void onMouse(int event, int x, int y, int, void* userdata);
-	void defineRegions(Mat& capturedImage);
+	void defineRegions(Mat& displayImage, Mat& originalImage);
 	void applyConfigurationSettingsToMatrix(Mat& src, int whichArea);
 	void checkBoundary(Mat& src);
 	unsigned short getZeroReference(Mat depthFrame);
@@ -45,5 +46,7 @@ public:
 	unsigned short calculateTotalDifferenceFromMin(Mat& initDepthFrame);
 	bool loadConfigSettingsFromFile();
 	unsigned short saveConfigSettingsToFile();
+	void calculateInitialHandsRemovedRoIMax(Mat& src);
+	unsigned short getInitialHandsRemovedRoIMax();
 };
 

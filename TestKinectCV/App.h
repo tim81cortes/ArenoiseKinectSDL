@@ -92,7 +92,7 @@ private:
 	bool foundSensor = false;
 	IDepthFrame* depthFrame;
 	Configure* config; 
-	uint16 initialMax; // Knowledge
+	uint16 configuredSandboxRimHeight; // Config
 	uint16 currentMax; // Knowledge
 	Mat previousSurface; // Knowledge
 	Mat currentDifferenceMap; // Knowledge
