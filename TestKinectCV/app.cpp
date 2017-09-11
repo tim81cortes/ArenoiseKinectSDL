@@ -124,9 +124,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	
 	// Channel 2 depth filter
 	Mat Mat2Cropped;
-	Mat BeforeColouredMat2;
-	Mat BeforeInvertedMat2;
-	Mat DisplayMat2;
 	uint16 _2ndIntAreaWidth;
 	_3dCoordinates scaledCoords;
 
@@ -217,8 +214,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			//subtract(depthMatOriginal.clone(), previousSurface, differenceMap);
 		}
 		previousSurface = depthMatOriginal.clone();
-		// Try simple thresholding
-		// TODO add else condition to make sure that the differenceMap is only iterrated over after
 		// previousSurface is populated.
 		Mat tmp;
 		for (int j = 0; j < differenceMap.rows; j++)
@@ -326,22 +321,13 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	currentMax = vmax;
 
 // Render Screen
-		// Channel 2 
-		Mat2Cropped.convertTo(BeforeColouredMat2, CV_8UC3);
-		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
-		
-		flipAndDisplay(DisplayMat2, "CvOutput2", 1);
 
-		
+
 		// Channel 1 and side control		
 		
-		
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-
 		addWeighted(BeforeColouredMat, 0.5 ,currentDifferenceMap, 0.5, 1.0, BeforeColouredMat);
-
 		applyColorMap(BeforeColouredMat, DisplayMat, colmap);
-
 
 		for (size_t i = 0; i < objectOrientations.size(); ++i)
 		{
@@ -362,11 +348,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cv::rectangle(beforeDisplayMat, sideControlRect, sideControlColor, CV_FILLED);
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
-
-		if (!bw.empty()) 
-		{
-			flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
-		}
 	
 		SafeRelease(depthFrame);
 }
