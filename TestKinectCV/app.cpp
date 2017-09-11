@@ -44,8 +44,6 @@ void App::Init()
 		Mat NormMat;
 		Mat DisplayMat;
 		
-		//double vmin, vmax;
-		//int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 		
 		cv::normalize(mat2, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
 		_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
@@ -53,18 +51,13 @@ void App::Init()
 		NormMat.convertTo(DisplayMat, CV_8UC3);
 		config->defineRegions(DisplayMat, mat2);	
 		configuredSandboxRimHeight = config->getInitialHandsRemovedRoIMax();
-		//mat2 = mat2(config->cropRect[2]);
-		//minMaxIdx(mat2, &vmin, &vmax, idx_min, idx_max);
+		
 		printf("Initial max %d\n", configuredSandboxRimHeight);
-		//initialMax = vmax;
 		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 		
-
-		currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
 
 		// Set flag to say that subsequent frames should be sent to different array
-		initFrameDone = true;
-		
+			
 		SafeRelease(depthFrame);
 		namedWindow("CvOutput", CV_WINDOW_NORMAL);
 		cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -91,7 +84,6 @@ bool App::getFrame()
 	{
 		return false;
 	}
-	// control which array gets the data
 	hr = depthFrame->CopyFrameDataToArray(DEPTHMAPWIDTH * DEPTHMAPHEIGHT, depthBufferCurrentDepthFrame);
 		if (FAILED(hr))
 	{
@@ -102,7 +94,6 @@ bool App::getFrame()
 }
 bool App::getSensorPresence()
 {
-	// TODO find an accurate way to get sensor presence.
 	return foundSensor;
 }
 void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock)
@@ -130,7 +121,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	Mat bw;
 	Mat multi;
 	Mat grey;
-	//uint32 cumulativeDifferenceFromMin = 0;
 	
 	// Channel 2 depth filter
 	Mat Mat2Cropped;
@@ -142,12 +132,12 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 
-	// Aquire depthframe	
+	// Aquire depthframe and save into local buffer	
 	getFrame();		
-	
+	// Create matrix and copy depth frame from buffer
 	Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
 	// Reduce size for processing
-				// Channel 1 main
+	// Channel 1 main
 	medianBlur(depthMatOriginal.clone(), _2ndInteractnArea, 5);
 	
 	// Side control
@@ -161,12 +151,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 	{
 		for (int i = 0; i < depthMatOriginal.cols; i++)
 		{
-			if (depthMatOriginal.at<uint16>(j, i) > 1300)
-			{
-				//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-				//depthMatOriginal.at<uint16>(j, i) = emptyBoxMinReferrence;
-			}
-			else
+			if (depthMatOriginal.at<uint16>(j, i) < 1300)
 			{
 				if (depthMatOriginal.at<uint16>(j, i) > 1000 && depthMatOriginal.at<uint16>(j, i) != emptyBoxMinReferrence)
 				{
@@ -189,7 +174,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// Channel 1 main
 	Mat aggragateMat = Mat(depthMatOriginal.clone(), config->cropRect[2]);
 	minMaxIdx(aggragateMat, &vmin, &vmax, idx_min, idx_max);
-	printf("Max at front of pit: %d \n", uint16(vmax));
+	//printf("Max at front of pit: %d \n", uint16(vmax));
 // HandleEvents
 	// Side control area
 	if (scaledCoords.values[2] > 35 && scaledCoords.values[2] < 100)
@@ -291,7 +276,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 	}
 // Transmit OSC see above currently
-// TODO Create packing loop
+
 	while (!dpthEvntQ.empty())
 	{
 		DepthEvent tmp = dpthEvntQ.front();
@@ -310,19 +295,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		if (0 == tmp.getEventName().compare("RemovedHandsFromSandBoxArea")) 
 		{
 			_3dCoordinates _3dtmp2 = tmp.getCoordinates();
-			try
-			{
-				//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
-				//printf("MinVal: %5.0f ; MaxVal: %5.0f; MinX: %d MinY: %d; MaxX: %d MaxY %d   \n"
-				//, vmin, vmax, idx_min[1], idx_min[0], idx_max[1], idx_max[0]);
-				//outBoundPS << osc::BeginMessage("/t") << pitchVal << lpfVal << osc::EndMessage;
-				//trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
-				//outBoundPS.Clear();
-			}
-			catch (Exception e)
-			{
-				printf("Error: %s %s", e.err, e.msg);
-			}
+
 			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
 		}
 		if (0 == tmp.getEventName().compare("DifferenceObjectFound"))
@@ -336,7 +309,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 			try
 			{
-				//printf("Triggering OSC send. Pitch: %d Cuttoff %d ", pitchVal, lpfVal);
 				outBoundPS << osc::BeginMessage("/t") << pitch << cutoffLPF << duration << amplitude <<osc::EndMessage;
 				trnsmtSock.Send(outBoundPS.Data(), outBoundPS.Size());
 				outBoundPS.Clear();
@@ -395,7 +367,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		{
 			flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
 		}
-		// Reporting
+	
 		SafeRelease(depthFrame);
 }
 
@@ -406,7 +378,7 @@ void App::drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale)
 	double hypotenuse;
 	angle = atan2((double)p.y - q.y, (double)p.x - q.x); // angle in radians
 	hypotenuse = sqrt((double)(p.y - q.y) * (p.y - q.y) + (p.x - q.x) * (p.x - q.x));
-	//    double degrees = angle * 180 / CV_PI; // convert radians to degrees (0-180 range)
+	//    double degrees = angle * 180 / CV_PI; // use to convert radians to degrees (0-180 range)
 	//    cout << "Degrees: " << abs(degrees - 180) << endl; // angle in 0-360 degrees range
 
 	// Here we lengthen the arrow by a factor of scale
