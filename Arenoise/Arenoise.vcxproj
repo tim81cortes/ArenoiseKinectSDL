@@ -64,14 +64,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeBuildCommandLine>make</NMakeBuildCommandLine>
-    <NMakeOutput>TestKinectCV.exe</NMakeOutput>
+    <NMakeOutput>ArenoiseC1.exe</NMakeOutput>
     <NMakeCleanCommandLine>make clean</NMakeCleanCommandLine>
     <NMakeReBuildCommandLine>make clean all</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <NMakeBuildCommandLine>make</NMakeBuildCommandLine>
-    <NMakeOutput>TestKinectCV.exe</NMakeOutput>
+    <NMakeOutput>ArenoiseC1.exe</NMakeOutput>
     <NMakeCleanCommandLine>make clean</NMakeCleanCommandLine>
     <NMakeReBuildCommandLine>make clean all</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
