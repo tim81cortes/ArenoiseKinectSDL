@@ -6,17 +6,16 @@
 using namespace std::chrono;
 typedef steady_clock Clock;
 
-
-
 #undef main
 int main(int, char**)
 {
-
+	// Depth frame acquisition, loop time step and memory and lifecycle management used 
+	// with permission from Max Oomen. See my masters thesis for referrence
+	
 	////allocate a pixel buffer
 	uint32* pixelBuffer = new uint32[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 	if (pixelBuffer == nullptr)
 		return 4;
-
 
 	//printf("Pixel buffer allocated.\n");
 
@@ -28,7 +27,7 @@ int main(int, char**)
 
 	char buffer[OUTPUT_BUFFER_SIZE];
 	
-
+	// Configure OSC packet stream
 	osc::OutboundPacketStream p(buffer, OUTPUT_BUFFER_SIZE);
 
 	App app;
@@ -40,26 +39,18 @@ int main(int, char**)
 	bool running = true;
 	while (running)
 	{
-		
-		
 		//calculate delta time
 		const auto now = Clock::now();
 		const auto duration = duration_cast<microseconds>(now - lastTime);
 		const float deltaTime = duration.count() / 1000000.0f;
 		lastTime = now;
-
+		
 		//update the application
 		app.Tick(deltaTime, p, transmitSocket);
-		
-
 	}
 	
-
-
-
 	//clean up
 	app.Shutdown();
-
 	return 0;
 }
 

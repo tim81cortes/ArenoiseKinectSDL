@@ -11,6 +11,7 @@
 
 
 using namespace cv;
+using namespace std;
 
 
 class Configure {
@@ -33,7 +34,6 @@ private:
 public:
 	Rect cropRect[3];
 	Configure(Rect crpRct, Point pnt1, Point pnt2);
-	//~Configure();
 	void onMouse(int event, int x, int y);
 	static void onMouse(int event, int x, int y, int, void* userdata);
 	void defineRegions(Mat& displayImage, Mat& originalImage);
@@ -43,7 +43,6 @@ public:
 	unsigned short getZeroReferenceFromFile(String depthFrameName);
 	unsigned short getZeroReferenceFromMatrix(Mat depthFrame);
 	void saveImage(Mat& src, int count);
-	unsigned short calculateTotalDifferenceFromMin(Mat& initDepthFrame);
 	bool loadConfigSettingsFromFile();
 	unsigned short saveConfigSettingsToFile();
 	void calculateInitialHandsRemovedRoIMax(Mat& src);

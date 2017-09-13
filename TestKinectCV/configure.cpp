@@ -2,6 +2,7 @@
 
 Configure::Configure(Rect crpRct, Point pnt1, Point pnt2)
 {
+	// Basic constructor
 	cropRect[0] = crpRct;
 	cropRect[1] = crpRct;
 	P1 = pnt1;
@@ -9,7 +10,8 @@ Configure::Configure(Rect crpRct, Point pnt1, Point pnt2)
 }
 
 void Configure::onMouse(int event, int x, int y) {
-// TODO Refactor to remove boolean variables where possible.
+	// Sets mouse behaviour e.g. for defining interaction
+	//regions
 	switch (event) {
 
 	case  CV_EVENT_LBUTTONDOWN:
@@ -37,10 +39,7 @@ void Configure::onMouse(int event, int x, int y) {
 		printf("ButtonUp");
 		break;
 
-
-
 	default:   break;
-
 
 	}
 
@@ -69,6 +68,7 @@ void Configure::onMouse(int event, int x, int y) {
 			tmpRect.y = P1.y;
 			tmpRect.height = P2.y - P1.y;
 		}
+		// Set interaction areas when mouse button released
 		if (!displayAreaSet)
 		{
 			cropRect[0] = tmpRect;
@@ -89,6 +89,7 @@ void Configure::onMouse(int event, int x, int y) {
 		}
 		else
 		{
+			// User draws rectangles for blurring anomalous pixels
 			rectangles.push_back(tmpRect);
 			printf("Rectangle added for blurring. X: %d Y: %d W: %d H: %d \n", tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
 		}
@@ -96,6 +97,7 @@ void Configure::onMouse(int event, int x, int y) {
 }
 
 void Configure::onMouse(int event, int x, int y, int f, void* userData) {
+	// Overridden function for controlling the mouse
 	if (userData == nullptr)
 	{
 		printf("There was an error cause by lack of user data in staic onMouse member function.\n");
@@ -107,6 +109,8 @@ void Configure::onMouse(int event, int x, int y, int f, void* userData) {
 	}
 
 void Configure::defineRegions(Mat& displayImage, Mat& originalImage) {
+	// If no file exists, allow the user to set the interaction regions
+	// then save the data/
 	bool configFileExists = false;
 	configFileExists = loadConfigSettingsFromFile();
 	
@@ -126,30 +130,31 @@ void Configure::defineRegions(Mat& displayImage, Mat& originalImage) {
 }
 void Configure::applyConfigurationSettingsToMatrix(Mat& src, int whichArea) 
 {
-	Mat ROI; // Secondary interaction area i.e. the white platform next to the pit
+	// Sets the interaction areas and zero reference for each frame according
+	// to the data stored in the config.
+	Mat ROI; 
  	checkBoundary(src);
 	for (int i = 0; i < rectangles.size(); i++)
 	{
-		if (rectangles[i].width>0 && rectangles[i].height>0) {
+		if (rectangles[i].width>0 && rectangles[i].height>0) 
+		{
 			medianBlur(src(rectangles[i]), src(rectangles[i]), 5);
 		}
 	}
 
-		if (cropRect[whichArea].width>0 && cropRect[whichArea].height>0) 
-		{
-			ROI = src(cropRect[whichArea]);
-		}
-		unsigned char boxBottomAdj = 0;
-		if (0 == whichArea)
-		{
-			boxBottomAdj = 30;
-		}
+	if (cropRect[whichArea].width>0 && cropRect[whichArea].height>0) 
+	{
+		ROI = src(cropRect[whichArea]);
+	}
+	unsigned char boxBottomAdj = 0;
+	if (0 == whichArea)
+	{
+		boxBottomAdj = 30;
+	}
 
 	subtract((boxBottom[whichArea] + boxBottomAdj), ROI, ROI);
 	src = ROI;
 }
-
-
 
 unsigned short Configure::getZeroReferenceFromFile(String depthFrameName) {
 	FileStorage fs;
@@ -201,6 +206,7 @@ void Configure::checkBoundary(Mat& src) {
 	}
 }
 unsigned short Configure::getZeroReference(Mat initDepthFrame) {
+	// Gets the bottom of the box maximum reading from matrix
 	unsigned short maxVal = 1150;
 	Mat blurMat = initDepthFrame.clone();
 	medianBlur(blurMat, blurMat, 5);
@@ -209,24 +215,15 @@ unsigned short Configure::getZeroReference(Mat initDepthFrame) {
 	int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
 
 	minMaxIdx(blurMat, &vmin, &vmax, idx_min, idx_max);
-	printf("MaxVal: %5.0f \n", vmax);
+	printf("Zero reference MaxVal: %5.0f \n", vmax);
 	maxVal = unsigned short(vmax);
 	return maxVal;
 }
 
-unsigned short Configure::calculateTotalDifferenceFromMin(Mat& depthFrame) {
-	
-	if (!depthFrame.empty())
-	{
-		return unsigned short(sum(depthFrame)[0]);
-	}
-	
-	return 0;
-}
 
 bool Configure::loadConfigSettingsFromFile()
 {
-	
+	// Load the config settings
 	std::string filename = "ConfigurationFiles\\configSettings.xml";
 	FileStorage file;
 	try
@@ -255,7 +252,7 @@ bool Configure::loadConfigSettingsFromFile()
 			std::cerr << "AnomolousReadingsToBlur is not a sequence! FAIL" << std::endl;
 			return false;
 		}
-
+		// Iterate over anomalous pixel rectangles in file
 		for (FileNodeIterator current = fn.begin(); current != fn.end(); current++) {
 			FileNode item = *current;
 			Rect tmpRect;
@@ -278,6 +275,7 @@ bool Configure::loadConfigSettingsFromFile()
 }
 unsigned short Configure::saveConfigSettingsToFile()
 {
+	// Saves user defined regions to file
 	std::string filename = "ConfigurationFiles\\configSettings.xml";
 	FileStorage file(filename.c_str(), FileStorage::WRITE);
 	file << "HandsRemovedRoIInitialMax" << configuredSandboxRimHeight;
@@ -285,6 +283,8 @@ unsigned short Configure::saveConfigSettingsToFile()
 	{
 		file << "CropRect" + std::to_string(i) << cropRect[i];
 	}
+	
+	// Save anomalous pixel demarkations
 	file << "AnomolousReadingsToBlur" << "[";
 	for (unsigned short i = 0; i < rectangles.size(); i++)
 	{
@@ -317,7 +317,6 @@ void Configure::saveImage(Mat& src, int count) {
 
 	file << "SandboxDifferenceMap" << src;
 	file.release();
-
 }
 
 

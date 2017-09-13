@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 #include <queue>
 #include <memory>
 #include <Kinect.h>
@@ -27,17 +28,13 @@
 #include "DepthEvent.h"
 
 
-
+// Address and port for OSC connection
 #define ADDRESS "127.0.0.1"
 #define PORT 8000
-
 #define OUTPUT_BUFFER_SIZE 1024
-
-
 // size of window
 #define DEPTHMAPWIDTH 512
 #define DEPTHMAPHEIGHT 424
-
 #define SCREENWIDTH 1024
 #define SCREENHEIGHT 768
 
@@ -50,8 +47,6 @@ typedef char int8;
 typedef short int16;
 typedef int int32;
 typedef long long int64;
-
-
 
 // safe way of deflating a COM object
 template<typename T>
@@ -69,13 +64,9 @@ public:
 	void Plot(int x, int y, uint32 color) {}
 	void flipAndDisplay(Mat & toFlip, const String window, int wait);
 	bool getFrame();
-	bool getSensorPresence();
 	void drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale = 0.2);
 	double getOrientation(const std::vector<Point> &pts, Mat &img, orientationVector &orVect);
 	double euclideanDist(Point& p, Point& q);
-	void createMask(Mat& src);
-
-	//osc::OutboundPacketStream p1;
 
 private:
 	//pointer to buffer that containes pixels that get pushed to the screen
