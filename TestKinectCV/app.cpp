@@ -147,7 +147,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 	// Aquire depthframe	
-	getFrame();		
+	if (!getFrame())
+	{
+		return;
+	}
 	
 	Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
 	// Reduce size for processing
@@ -394,13 +397,9 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		for (int i = 1; i < numBins; i++)
 		{
-
-
 			line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(depthHist.at<float>(i - 1))),
-				Point(bin_w*(i), hist_h - cvRound(depthHist.at<float>(i))),
-				Scalar(255, 0, 0), 2, 8, 0);
-
-
+			Point(bin_w*(i), hist_h - cvRound(depthHist.at<float>(i))),
+			Scalar(255, 0, 0), 2, 8, 0);
 		}
 
 
