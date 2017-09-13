@@ -88,6 +88,7 @@ private:
 	char randNote[2] = { 0,0 };
 	char lastNote[2] = { 0,0 };
 	uint16 duration = 0;
+	uint16 amplitude = 0;
 	uint16 pitch = 35;
 	uint8 scaledNoteVal = 0;
 	IKinectSensor* m_sensor = nullptr;

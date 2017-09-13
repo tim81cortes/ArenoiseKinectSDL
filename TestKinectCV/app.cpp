@@ -146,7 +146,10 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 	// Aquire depthframe	
-	getFrame();		
+	if (!getFrame())
+	{
+		return;
+	}
 	
 	Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
 	// Reduce size for processing
@@ -324,7 +327,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 				printf("Error: %s %s", e.err, e.msg);
 			}
 			printf("Event triggered Name: %s Type: %d X: %3.0f Y: %3.0f Z: %3.0f \n", tmp.getEventName().c_str(), tmp.getEventType(), _3dtmp2.values[0], _3dtmp2.values[1], _3dtmp2.values[2]);
-			uint8 randNoteIndex = rand() % 21;
+			uint8 randNoteIndex = (rand() % 15)+3;
 			randNote[0] = cMajor[randNoteIndex % 7];
 			randNote[1] = floor(randNoteIndex / 7) + 3;
 		}
@@ -338,7 +341,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			pitch = 36 + ((major_intervals[scaledNoteVal % 7]) + (floor(scaledNoteVal / 7) * 12));
 			uint16 cutoffLPF = 500 + tmpOrVect.center[1] * 1500 / config->cropRect[0].height;
 			duration = tmpOrVect.distFromCentre[0] * 500 / 100;
-			uint16 amplitude = 5 + tmpOrVect.distFromCentre[1] * 2; //* 100 / 100
+			amplitude = 5 + tmpOrVect.distFromCentre[1] * 2; //* 100 / 100
 			printf("Mod ScaledNote: %d", scaledNoteVal % 7);
 			try
 			{
@@ -363,7 +366,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		applyColorMap(BeforeColouredMat2, DisplayMat2, colmap);
 		
 		flipAndDisplay(DisplayMat2, "CvOutput2", 1);
-		
 		
 		// Channel 1 and side control		
 		Mat Cs(depthMatOriginal.size(), CV_8UC3);
@@ -397,7 +399,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		//Rect firstC = Rect(Point(config->cropRect[0].x, 100), Point(200, 200));
 		putText(Overlay, format("Last note: %c%d Please play: %c%d " , lastNote[0], lastNote[1], randNote[0] , randNote[1]), cvPoint(10, 30),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0, 0, 0), 1, CV_AA);
-		putText(Overlay, format("Dur: %d ",duration), cvPoint(10, 50),
+		putText(Overlay, format("Dur: %d Ampl: %d",duration, amplitude), cvPoint(10, 50),
 			FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0, 0, 0), 1, CV_AA);
 		flip(Overlay, Overlay, 1);
 		cv::rectangle(Cs, firstC, Scalar(255,0,0, 50), CV_FILLED);
@@ -405,7 +407,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		cv::rectangle(Cs, thirdC, Scalar(255, 0, 0, 50), CV_FILLED);
 		cv::rectangle(Cs, fourthC, Scalar(255, 0, 0, 50), CV_FILLED);
 		addWeighted(Overlay, 0.8, Cs, 0.2, 1, beforeDisplayMat);
-		//addWeighted(beforeDisplayMat, 0.3, Overlay, 0.7, 1, beforeDisplayMat);
+		
 		flipAndDisplay(beforeDisplayMat, "CvOutput", 1);
 
 		if (!bw.empty()) 
@@ -415,7 +417,6 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 		// Reporting
 		SafeRelease(depthFrame);
 }
-
 
 void App::drawAxis(Mat& img, Point p, Point q, Scalar colour, const float scale)
 {
