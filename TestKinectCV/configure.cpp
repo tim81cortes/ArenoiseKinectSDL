@@ -1,3 +1,13 @@
+// File: config.cpp
+// Name: Tim Aylott.cpp
+// Date: 01/09/2017
+// Course: MSc Software Systems
+// Description: Arenoise is a Digital Musical Instrument which 
+// uses sand in a sandbox as an interaction meduim. This is 
+// component 1 which reads the sensor data, processes interaction events, 
+// sends them to component 2 and then displays visual feedback. 
+// The configure class stores the configure settings and applys
+// them using its member functions
 #include "configureApp.h"
 
 Configure::Configure(Rect crpRct, Point pnt1, Point pnt2)

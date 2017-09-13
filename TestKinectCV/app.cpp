@@ -1,3 +1,14 @@
+ // File: app.cpp
+ // Name: Tim Aylott.cpp
+ // Date: 01/09/2017
+ // Course: MSc Software Systems
+ // Description: Arenoise is a Digital Musical Instrument which 
+ // uses sand in a sandbox as an interaction meduim. This is 
+ // component 1 which reads the sensor data, processes interaction events, 
+ // sends them to component 2 and then displays visual feedback. 
+// This file has a follows the game loop pattern to process depth data
+// into musical events. It then renders a visualisa of the input and OSC output.
+
 #include "App.h"	
 
 void App::Init()
@@ -73,7 +84,7 @@ void App::Init()
 void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock)
 {
 	
-// ProcessInput
+// =============		ProcessInput		================
 	// Initialise local variables
 	// Channel 1 main
 	double vmin, vmax;
