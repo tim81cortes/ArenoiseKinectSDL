@@ -148,8 +148,11 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 
-	// Aquire depthframe	
-	getFrame();		
+	// Aquire depthframe
+	if (!getFrame())
+	{
+		return;
+	}
 	
 	Mat depthMatOriginal(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);		
 	// Reduce size for processing
@@ -281,58 +284,58 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 			// Try simple thresholding
 			// TODO add else condition to make sure that the differenceMap is only iterrated over after
 			// previousSurface is populated.
-			Mat tmp;
-			for (int i = 0; i < differenceMap.rows; i++)
-			{
-				for (int j = 0; j < differenceMap.cols; j++)
-				{
+			//Mat tmp;
+			//for (int i = 0; i < differenceMap.rows; i++)
+			//{
+			//	for (int j = 0; j < differenceMap.cols; j++)
+			//	{
 
-					if (differenceMap.at<uint16>(i, j) > 255)
-					{
-						//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
-						differenceMap.at<uint16>(i, j) = 0;
-					}
-					else if (differenceMap.at<uint16>(i, j) < 10)
-					{
-						differenceMap.at<uint16>(i, j) = 0;
-					}
-					else
-					{
-						differenceMap.at<uint16>(i, j) = 65532;
-					}
-				}
-			}
+			//		if (differenceMap.at<uint16>(i, j) > 255)
+			//		{
+			//			//printf("I: %d J: %d Val: %d\n", i, j, emptyBoxMinReferrence - depthMatOriginal.at<uint16>(j, i));
+			//			differenceMap.at<uint16>(i, j) = 0;
+			//		}
+			//		else if (differenceMap.at<uint16>(i, j) < 10)
+			//		{
+			//			differenceMap.at<uint16>(i, j) = 0;
+			//		}
+			//		else
+			//		{
+			//			differenceMap.at<uint16>(i, j) = 65532;
+			//		}
+			//	}
+			//}
 
-			differenceMap.convertTo(currentDifferenceMap, CV_8U);
-			cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
-			cvtColor(multi, grey, COLOR_BGR2GRAY);
-			threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
-			findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+			//differenceMap.convertTo(currentDifferenceMap, CV_8U);
+			//cvtColor(currentDifferenceMap.clone(), multi, COLOR_GRAY2BGR);
+			//cvtColor(multi, grey, COLOR_BGR2GRAY);
+			//threshold(grey, bw, 50, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+			//findContours(bw, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 
-			for (int i = 0; i < contours.size(); ++i)
-			{
-				orientationVector objOrient;
-				// Calculate the area of each contour
-				double area = contourArea(contours[i]);
-				// Ignore contours that are too small or too large
-				if (area < 1e2 || 1e5 < area)
-				{
-					continue;
-				}
-				// Draw each contour only for visualisation purposes
-				drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
-				// Find the orientation of each shape
+			//for (int i = 0; i < contours.size(); ++i)
+			//{
+			//	orientationVector objOrient;
+			//	// Calculate the area of each contour
+			//	double area = contourArea(contours[i]);
+			//	// Ignore contours that are too small or too large
+			//	if (area < 1e2 || 1e5 < area)
+			//	{
+			//		continue;
+			//	}
+			//	// Draw each contour only for visualisation purposes
+			//	drawContours(DisplayMat, contours, static_cast<int>(i), Scalar(0, 255, 0), 2, 8, hierarchy, 0);
+			//	// Find the orientation of each shape
 
-				getOrientation(contours[i], DisplayMat, objOrient);
+			//	getOrientation(contours[i], DisplayMat, objOrient);
 
-				// Calculate the distance between points
-				objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
-				objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
-				objectOrientations.push_back(objOrient);
+			//	// Calculate the distance between points
+			//	objOrient.distFromCentre[0] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.front[0], objOrient.front[1]));
+			//	objOrient.distFromCentre[1] = euclideanDist(Point(objOrient.center[0], objOrient.center[1]), Point(objOrient.side[0], objOrient.side[1]));
+			//	objectOrientations.push_back(objOrient);
 
-				DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
-				dpthEvntQ.emplace(foundDiffObj);
-			}
+			//	DepthEvent foundDiffObj("DifferenceObjectFound", dpthEvent::evnt_Toggle, objOrient, 1);
+			//	dpthEvntQ.emplace(foundDiffObj);
+			//}
 		}
 		handsRaised = true;
 	}
@@ -418,40 +421,40 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 // Render Screen
 		// Channel 2 
-		createMask(depthMatOriginal);
-		
-		//printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
+		//createMask(depthMatOriginal);
+		//
+		////printf("First bin: %3.0f, Max bin: %3.0f  \n", depthHist.at<float>(0), hist_vmax);
 
+		//
+		//cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
+		//int dilation_size = 24; 
+		//
+		//subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
+		//cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+		//	cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+		//	cv::Point(dilation_size, dilation_size));
+		//cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
 		
-		cv::threshold(fgMaskMOG2, fgMaskMOG2, 254.0, 255.0,0);
-		int dilation_size = 24; 
-		
-		subtract(fgMaskMOG2, currentDifferenceMap, fgMaskMOG2);
-		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
-			cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-			cv::Point(dilation_size, dilation_size));
-		cv::dilate(fgMaskMOG2, fgMaskMOG2, element);
-		
-		Mat BeforeColouredMat3;
+		//Mat BeforeColouredMat3;
 		depthMatOriginal.convertTo(BeforeColouredMat, CV_8UC3);
-		Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
-		if (handsRaised)
-		{
-			for (int i = 0; i < BeforeColouredMat2.rows; i++)
-				{
-					for (int j = 0; j < BeforeColouredMat2.cols; j++ )
-					{
-						if (255 != fgMaskMOG2.at<uint8>(i,j)) 
-						{
-							//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
-							updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
-						}
-					}
-				}
-		}
-		
-		cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
-		flipAndDisplay(updatedSurface, "CvOutput2", 1);
+		//Mat2Cropped.convertTo(BeforeColouredMat3, CV_8UC3);
+		//if (handsRaised)
+		//{
+		//	for (int i = 0; i < BeforeColouredMat2.rows; i++)
+		//		{
+		//			for (int j = 0; j < BeforeColouredMat2.cols; j++ )
+		//			{
+		//				if (255 != fgMaskMOG2.at<uint8>(i,j)) 
+		//				{
+		//					//printf("Updating non-masked surface at i: %d j: %d \n", i, j);
+		//					updatedSurface.at<uint8>(i, j) = BeforeColouredMat.at<uint8>(i,j);
+		//				}
+		//			}
+		//		}
+		//}
+		//
+		//cv::applyColorMap(updatedSurface, DisplayMat2, colmap);
+		//flipAndDisplay(updatedSurface, "CvOutput2", 1);
 
 		
 		// Channel 1 and side control		
@@ -481,7 +484,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 
 
-		flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
+		//flipAndDisplay(currentDifferenceMap, "DiffMapOutput", 1);
 		
 		// Reporting
 		SafeRelease(depthFrame);
