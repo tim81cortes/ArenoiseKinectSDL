@@ -58,14 +58,14 @@ void App::Init()
 	Mat DisplayMat;
 	
 	cv::normalize(mat2, NormMat, 0, 255, CV_MINMAX, CV_16UC1);
-	_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
 	mat2.copyTo(updatedSurface);
 	NormMat.convertTo(DisplayMat, CV_8UC3);
 	// Defing interaction area. Requests new config if none exists
 	config->defineRegions(DisplayMat, mat2);
 	// Retrieves data from config instance
 	configuredSandboxRimHeight = config->getInitialHandsRemovedRoIMax();
-	
+	_2ndInteractnAreaMinReferrence = config->getZeroReferenceFromMatrix(mat2);
+
 	// Display configuration data 
 	printf("Initial max %d\n", configuredSandboxRimHeight);
 	currentDifferenceMap = Mat(config->cropRect[0].size(), CV_8U);
@@ -77,8 +77,7 @@ void App::Init()
 	namedWindow("CvOutput", CV_WINDOW_NORMAL);
 	cvSetWindowProperty("CvOutput", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 	cvDestroyWindow("Choose interaction area then highlight dead pixels.");
-		
-	
+
 }
 
 void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransmitSocket &trnsmtSock)
