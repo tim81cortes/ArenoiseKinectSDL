@@ -71,6 +71,9 @@ public:
 private:
 	//pointer to buffer that containes pixels that get pushed to the screen
 	// size of the buffer is SCRWIDTH * SCRHIGHT * sizeof(uint32)
+	
+	uint8 major_intervals[7] = { 0,2,4,5,7,9,11 };
+	char cMajor[7] = { 'C','D','E','F','G','A','B' };
 	double currentSideControlCoords[3] = {0,0,0}; // Knowledge
 	uint32* m_pixelBuffer = nullptr;
 	IKinectSensor* m_sensor = nullptr;

@@ -51,6 +51,10 @@ void App::Init()
 	// Set buffer for frame storage
 	depthBufferCurrentDepthFrame = new uint16[DEPTHMAPWIDTH * DEPTHMAPHEIGHT];
 
+	double vmin, vmax;
+
+		int idx_min[2] = { 255,255 }, idx_max[2] = { 255, 255 };
+
 	// Wait until a depthframe has been aquired.
 	while(!getFrame());
 	Mat mat2(DEPTHMAPHEIGHT, DEPTHMAPWIDTH, CV_16U, depthBufferCurrentDepthFrame);
@@ -279,6 +283,43 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 //	=============			Render Screen		==================
 
+// HISTOGRAM_VISUALISATION_SNIPPET_1
+		Mat MatCropped = depthMatOriginal.clone();
+		Mat BeforeColouredMat;
+		MatCropped.convertTo(BeforeColouredMat, CV_8UC3, 0.25);
+		int numBins = 128;
+
+		bool uniform = true; bool accumulate = false;
+		Mat depthHist;
+		float range[] = { float(configuredSandboxRimHeight) * 0.25, 184 };
+		const float* histRange = { range };
+		calcHist(&BeforeColouredMat, 1, 0, Mat(), depthHist, 1, &numBins, &histRange, uniform, accumulate);
+
+		int hist_w = 512; int hist_h = 400;
+		int bin_w = cvRound((double)hist_w / numBins);
+
+		Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0, 0, 0));
+
+		// Normalize the result to clearly display the graph
+		normalize(depthHist, depthHist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+
+		double hist_vmin, hist_vmax;
+		int hist_idx_min[2] = { 255,255 }, hist_idx_max[2] = { 255, 255 };
+
+		minMaxIdx(depthHist, &hist_vmin, &hist_vmax, hist_idx_min, hist_idx_max);
+
+		// Draw the lines on the histImage matrix
+		for (int i = 1; i < numBins; i++)
+		{
+			line(histImage, Point(bin_w*(i - 1), hist_h - cvRound(depthHist.at<float>(i - 1))),
+				Point(bin_w*(i), hist_h - cvRound(depthHist.at<float>(i))),
+				Scalar(255, 0, 0), 2, 8, 0);
+		}
+
+		line(histImage, Point(configuredSandboxRimHeight * 0.25, 0), Point(configuredSandboxRimHeight * 0.25, hist_h - 100), Scalar(0, 255, 255));
+		line(histImage, Point(hist_idx_max[0] * 4, 0), Point(hist_idx_max[0] * 4, hist_h - 100), Scalar(0, 255, 0));
+
+
 		// Channel 1 and side control		
 		// Display the difference map on the user interface and add colour depth mapping
 		depthMatOriginal.convertTo(beforeColouredMatrix, CV_8UC3);
@@ -297,6 +338,7 @@ void App::Tick(float deltaTime, osc::OutboundPacketStream &outBoundPS, UdpTransm
 
 		rectangle(displayMatrix, sideControlRect, sideControlColor, CV_FILLED);
 		flipAndDisplay(displayMatrix, "CvOutput", 1);
+		//flipAndDisplay(histImage, "CvOutput", 1);
 		SafeRelease(depthFrame);
 }
 
